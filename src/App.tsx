@@ -199,6 +199,17 @@ const App: React.FC = () => {
   const [showHiddenOverride, setShowHiddenOverride] = useState<boolean>(false);
   const [showHiddenInTree, setShowHiddenInTree] = useState<boolean>(false);
 
+  const [completedMissions, setCompletedMissions] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem("completedMissions");
+      if (stored) {
+        const arr: string[] = JSON.parse(stored);
+        return new Set(arr);
+      }
+    } catch {}
+    return new Set();
+  });
+
   const setCwd = useCallback(
     (p: string) => {
       const normalized = normalizePath(p);
@@ -885,12 +896,13 @@ const App: React.FC = () => {
   }, [input, cwd]);
 
   const missions = [
-    { id: "nav-home", description: "Navigate to /home/user", isComplete: () => normalizePath(cwd) === "/home/user" },
     { id: "list-home", description: "List contents of home directory", isComplete: () => lsOutput?.path === "/home/user" && !lsOutput?.showAll },
     { id: "show-hidden-home", description: "Show hidden files in home directory", isComplete: () => lsOutput?.path === "/home/user" && lsOutput?.showAll },
     { id: "view-readme", description: "View README.txt content", isComplete: () => (textOutput?.toLowerCase().includes("filesystem visualizer") ?? false) },
+    { id: "cd-thesis", description: "Change directory to /home/user/Documents/Thesis", isComplete: () => normalizePath(cwd) === "/home/user/Documents/Thesis" },
     { id: "head-chapter1", description: "Show first 5 lines of chapter1.md", isComplete: () => textOutput?.includes("# Chapter 1: Introduction") ?? false },
     { id: "tail-chapter2", description: "Show last lines of chapter2.md (methods)", isComplete: () => (textOutput?.includes("1. Data collection") && textOutput?.includes("2. Analysis")) ?? false },
+    { id: "find-example-fasta", description: "Navigate the home folder to find example.fasta", isComplete: () => (lsOutput?.entries.some((e) => e.name === "example.fasta") ?? false) },
     { id: "count-fasta-seqs", description: "Count sequences in example.fasta", isComplete: () => textOutput?.trim().startsWith("3") ?? false },
     { id: "thesis-sizes", description: "List items in Thesis directory with human-readable sizes and block counts using ls -lhs", isComplete: () => lsOutput?.path === "/home/user/Documents/Thesis" && lsOutput?.long && lsOutput?.human && lsOutput?.blocks },
     { id: "extract-treated-sample-ids", description: "From sample metadata, extract sample IDs of treated samples", isComplete: () => textOutput?.includes("s2") && textOutput?.includes("s4") },
@@ -901,6 +913,20 @@ const App: React.FC = () => {
     { id: "count-expenses", description: "Count number of expense entries (excluding header) in expenses.csv", isComplete: () => { const t = textOutput?.trim(); if (!t) return false; return t.split(/\s+/)[0] === "4"; } },
     { id: "find-analysis-project", description: "Find the analysis project by listing Projects and filtering for 'analysis'", isComplete: () => textOutput?.toLowerCase().includes("analysis") ?? false }
   ];
+
+  useEffect(() => {
+    setCompletedMissions((prev) => {
+      const copy = new Set(prev);
+      missions.forEach((m) => {
+        if (m.isComplete()) copy.add(m.id);
+      });
+      return copy;
+    });
+  }, [cwd, lsOutput, textOutput]);
+
+  useEffect(() => {
+    localStorage.setItem("completedMissions", JSON.stringify(Array.from(completedMissions)));
+  }, [completedMissions]);
 
   useEffect(() => {
     const segments = normalizePath(cwd).slice(1).split("/").filter(Boolean);
@@ -963,13 +989,22 @@ const App: React.FC = () => {
           <div className="info-block">
             <div className="section">
               <div className="label">Exercises</div>
-              <div>
-                {missions.filter((m) => m.isComplete()).length} / {missions.length} complete
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div>{missions.filter((m) => completedMissions.has(m.id) || m.isComplete()).length} / {missions.length} complete</div>
+                <button
+                  onClick={() => {
+                    setCompletedMissions(new Set());
+                    localStorage.removeItem("completedMissions");
+                  }}
+                  style={{ marginLeft: 12 }}
+                >
+                  Reset
+                </button>
               </div>
               <ul style={{ paddingLeft: 16, marginTop: 6 }}>
                 {missions.map((m) => (
                   <li key={m.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span>{m.isComplete() ? "✅" : "⬜"}</span>
+                    <span>{completedMissions.has(m.id) || m.isComplete() ? "✅" : "⬜"}</span>
                     <span>{m.description}</span>
                   </li>
                 ))}
