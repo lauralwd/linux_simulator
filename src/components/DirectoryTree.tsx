@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useEffect } from "react";
+import React, { useRef, useEffect } from "react";
 import { FSNode } from "../fs";
 import { normalizePath, joinPaths } from "../utils/path";
 
@@ -57,7 +57,8 @@ const TreeNode: React.FC<NodeProps> = ({
   };
 
   return (
-    <div role="treeitem"
+    <div
+      role="treeitem"
       aria-expanded={hasChildren ? isExpanded : undefined}
       aria-selected={isCwd}
       style={{ paddingLeft: level * 16, position: "relative" }}
