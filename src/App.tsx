@@ -33,6 +33,65 @@ type LsOutput = {
 };
 
 const App: React.FC = () => {
+  const TOOLTIP_DATA: Record<string, { usage: string; detail: string }> = {
+    cd: { usage: "cd <path>", detail: "Change working directory to <path>. Without argument returns to home." },
+    ls: {
+      usage: "ls [-a|-l|-h|-s] [path]",
+      detail: "-a: show hidden files\n-l: long listing (permissions, size, mtime)\n-h: human-readable sizes\n-s: show block sizes"
+    },
+    cat: { usage: "cat <file>...", detail: "Concatenate and display file contents. Multiple files show headers." },
+    head: { usage: "head [-n N] <file>", detail: "Show first N lines of file (default 10). Syntax: -n 5 or -5." },
+    tail: { usage: "tail [-n N] <file>", detail: "Show last N lines of file (default 10)." },
+    wc: {
+      usage: "wc [-l|-w|-c] <file>...",
+      detail: "Count lines, words, bytes. No flags shows all; multiple files include a total line."
+    },
+    grep: {
+      usage: "grep [-i] <pattern> <file>...",
+      detail: "Search for pattern in file(s). -i for case-insensitive."
+    }
+  };
+
+  const CommandWithTooltip: React.FC<{ cmdKey: string; children: React.ReactNode }> = ({ cmdKey, children }) => {
+    const info = TOOLTIP_DATA[cmdKey];
+    const [show, setShow] = useState(false);
+    return (
+      <span
+        style={{ position: "relative", display: "inline-block" }}
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+        tabIndex={0}
+        aria-describedby={`tooltip-${cmdKey}`}
+      >
+        {children}
+        {show && (
+          <div
+            id={`tooltip-${cmdKey}`}
+            role="tooltip"
+            style={{
+              position: "absolute",
+              top: "110%",
+              left: "50%",
+              transform: "translate(-50%, 4px)",
+              backgroundColor: dark ? "#1f2937" : "#fff",
+              color: dark ? "#f5f5f5" : "#111",
+              border: "1px solid rgba(0,0,0,0.15)",
+              padding: 10,
+              borderRadius: 6,
+              boxShadow: "0 6px 20px rgba(0,0,0,0.1)",
+              zIndex: 100,
+              width: 260,
+              fontSize: "0.85em",
+              whiteSpace: "pre-wrap"
+            }}
+          >
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>{info.usage}</div>
+            <div>{info.detail}</div>
+          </div>
+        )}
+      </span>
+    );
+  };
   const [cwd, setCwdRaw] = useState<string>(normalizePath(HOME));
   const [hovered, setHovered] = useState<string | null>(null);
   const [input, setInput] = useState<string>(`cd ${HOME}`);
@@ -836,13 +895,13 @@ const App: React.FC = () => {
             <div className="hint" style={{ marginTop: 8 }}>
               <p style={{ margin: 0 }}>
                 Supported commands:<br />
-                <code>cd &lt;path&gt;</code><br />
-                <code>ls [-a|-l|-h|-s] [&lt;path&gt;]</code><br />
-                <code>cat &lt;file&gt;</code><br />
-                <code>head [-n N] &lt;file&gt;</code><br />
-                <code>tail [-n N] &lt;file&gt;</code><br />
-                <code>wc [-l|-w|-c] &lt;file&gt;</code><br />
-                <code>grep [-i] &lt;pattern&gt; &lt;file&gt;</code>.
+                <CommandWithTooltip cmdKey="cd"><code>cd &lt;path&gt;</code></CommandWithTooltip><br />
+                <CommandWithTooltip cmdKey="ls"><code>ls [-a|-l|-h|-s] [&lt;path&gt;]</code></CommandWithTooltip><br />
+                <CommandWithTooltip cmdKey="cat"><code>cat &lt;file&gt;</code></CommandWithTooltip><br />
+                <CommandWithTooltip cmdKey="head"><code>head [-n N] &lt;file&gt;</code></CommandWithTooltip><br />
+                <CommandWithTooltip cmdKey="tail"><code>tail [-n N] &lt;file&gt;</code></CommandWithTooltip><br />
+                <CommandWithTooltip cmdKey="wc"><code>wc [-l|-w|-c] &lt;file&gt;</code></CommandWithTooltip><br />
+                <CommandWithTooltip cmdKey="grep"><code>grep [-i] &lt;pattern&gt; &lt;file&gt;</code></CommandWithTooltip>.
               </p>
             </div>
           </div>
