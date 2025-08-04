@@ -108,11 +108,6 @@ const App: React.FC = () => {
     return () => window.removeEventListener("keydown", onKey);
   }, [cwd, setCwd]);
 
-  // Sync shell input with cwd
-  useEffect(() => {
-    setInput(`cd ${cwd}`);
-  }, [cwd]);
-
   // Theme persistence
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
@@ -144,6 +139,7 @@ const App: React.FC = () => {
       if (parts.length === 1) {
         setCwd(HOME);
         setLsOutput(null);
+        setInput("");
         return;
       }
       const targetRaw = parts.slice(1).join(" ");
@@ -156,6 +152,7 @@ const App: React.FC = () => {
       if (isDirectory(fileSystem, target)) {
         setCwd(target);
         setLsOutput(null);
+        setInput("");
       } else {
         setError(`cd: not a directory: ${targetRaw}`);
       }
@@ -172,7 +169,10 @@ const App: React.FC = () => {
         return;
       }
       const out = listDirectory(targetPath);
-      if (out) setLsOutput(out);
+      if (out) {
+        setLsOutput(out);
+        setInput("");
+      }
     } else {
       setError(`Unknown command: ${cmd}. Only 'cd' and 'ls' supported.`);
     }
