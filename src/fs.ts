@@ -155,7 +155,16 @@ root.render(<App />);` }
                 {
                   name: "analysis",
                   type: "dir",
-                  children: [{ name: "data.csv", type: "file" }]
+                  children: [
+                    {
+                      name: "data.csv",
+                      type: "file",
+                      content: `id,value
+1,10
+2,15
+3,20`
+                    }
+                  ]
                 }
               ]
             },
@@ -181,7 +190,31 @@ root.render(<App />);` }
             },
             { name: ".bashrc", type: "file" },
             { name: ".profile", type: "file" },
-            { name: "README.txt", type: "file", content: `This is the user README for the filesystem visualizer. Use commands like ls, cd, cat, head, tail, wc, and grep to explore.` }
+            { name: "README.txt", type: "file", content: `This is the user README for the filesystem visualizer. Use commands like ls, cd, cat, head, tail, wc, and grep to explore.` },
+            {
+              name: "Examples",
+              type: "dir",
+              children: [
+                {
+                  name: "grocery.txt",
+                  type: "file",
+                  content: `Milk
+Eggs
+Bread
+Apples
+Chicken`
+                },
+                {
+                  name: "expenses.csv",
+                  type: "file",
+                  content: `Date,Category,Amount
+2025-07-01,Groceries,45.67
+2025-07-03,Transport,12.50
+2025-07-05,Utilities,80.00
+2025-07-10,Entertainment,25.00`
+                }
+              ]
+            }
           ]
         },
         {
@@ -211,7 +244,15 @@ root.render(<App />);` }
                       type: "dir",
                       children: [
                         { name: "experiment_results.csv", type: "file" },
-                        { name: "sample_metadata.tsv", type: "file" }
+                        {
+                          name: "sample_metadata.tsv",
+                          type: "file",
+                          content: `sample_id	condition	replicate
+s1	control	1
+s2	treated	1
+s3	control	2
+s4	treated	2`
+                        }
                       ]
                     }
                   ]

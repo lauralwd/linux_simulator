@@ -907,18 +907,21 @@ const App: React.FC = () => {
   }, [input, cwd]);
 
   const missions = [
-    {
-      id: "nav-research",
-      description: "Navigate to /home/user/Documents/Research",
-      isComplete: () => normalizePath(cwd) === "/home/user/Documents/Research"
-    },
-    {
-      id: "ls-research",
-      description: "Run ls on /home/user/Documents/Research and verify example.fasta is listed",
-      isComplete: () =>
-        lsOutput?.path === "/home/user/Documents/Research" &&
-        lsOutput.entries.some((e) => e.name === "example.fasta")
-    }
+    { id: "nav-home", description: "Navigate to /home/user", isComplete: () => normalizePath(cwd) === "/home/user" },
+    { id: "list-home", description: "List contents of home directory", isComplete: () => lsOutput?.path === "/home/user" && !lsOutput?.showAll },
+    { id: "show-hidden-home", description: "Show hidden files in home directory", isComplete: () => lsOutput?.path === "/home/user" && lsOutput?.showAll },
+    { id: "view-readme", description: "View README.txt content", isComplete: () => (textOutput?.toLowerCase().includes("filesystem visualizer") ?? false) },
+    { id: "head-chapter1", description: "Show first 5 lines of chapter1.md", isComplete: () => textOutput?.includes("# Chapter 1: Introduction") ?? false },
+    { id: "tail-chapter2", description: "Show last lines of chapter2.md (methods)", isComplete: () => (textOutput?.includes("1. Data collection") && textOutput?.includes("2. Analysis")) ?? false },
+    { id: "count-fasta-seqs", description: "Count sequences in example.fasta", isComplete: () => textOutput?.trim().startsWith("3") ?? false },
+    { id: "thesis-sizes", description: "List items in Thesis directory with human-readable sizes and block counts using ls -lhs", isComplete: () => lsOutput?.path === "/home/user/Documents/Thesis" && lsOutput?.long && lsOutput?.human && lsOutput?.blocks },
+    { id: "extract-treated-sample-ids", description: "From sample metadata, extract sample IDs of treated samples", isComplete: () => textOutput?.includes("s2") && textOutput?.includes("s4") },
+    { id: "sample-id-condition", description: "Extract sample IDs and conditions from sample metadata", isComplete: () => (textOutput?.includes("sample_id") && textOutput?.includes("control")) ?? false },
+    { id: "search-filesystem", description: "Search for the word 'filesystem' in README.txt", isComplete: () => (textOutput?.toLowerCase().includes("filesystem") ?? false) },
+    { id: "find-index-in-webapp", description: "List contents of webapp project and filter for 'index'", isComplete: () => textOutput?.includes("index.html") ?? false },
+    { id: "show-grocery", description: "Display the grocery list", isComplete: () => textOutput?.includes("Milk") ?? false },
+    { id: "count-expenses", description: "Count number of expense entries (excluding header) in expenses.csv", isComplete: () => { const t = textOutput?.trim(); if (!t) return false; return t.split(/\s+/)[0] === "4"; } },
+    { id: "find-analysis-project", description: "Find the analysis project by listing Projects and filtering for 'analysis'", isComplete: () => textOutput?.toLowerCase().includes("analysis") ?? false }
   ];
 
   useEffect(() => {
