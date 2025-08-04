@@ -243,3 +243,20 @@ kbd {
   white-space: nowrap;
   border: 0;
 }
+
+.autocomplete-suggestions {
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: 6px;
+  max-width: 100%;
+  font-size: 0.9rem;
+  overflow: hidden;
+}
+.autocomplete-suggestions .suggestion {
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.autocomplete-suggestions .suggestion:hover {
+  background: rgba(100, 140, 255, 0.1);
+}

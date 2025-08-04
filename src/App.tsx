@@ -3,7 +3,7 @@ import { fileSystem, FSNode } from "./fs";
 import { DirectoryTree } from "./components/DirectoryTree";
 import { normalizePath, joinPaths, relativePath } from "./utils/path";
 
-const HOME = "/home/user";
+const HOME = "/home/Laura";
 
 const findNodeByPath = (root: FSNode, path: string): FSNode | null => {
   const normalized = normalizePath(path);
@@ -38,8 +38,10 @@ const App: React.FC = () => {
   });
   const [lsOutput, setLsOutput] = useState<LsOutput | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(() => {
-    return new Set([normalizePath("/"), normalizePath("/home"), normalizePath("/home/user")]);
+    return new Set([normalizePath("/"), normalizePath("/home"), normalizePath("/home/Laura")]);
   });
+
+  const [hoveredPathsSeen, setHoveredPathsSeen] = useState<Set<string>>(new Set());
 
   const setCwd = useCallback(
     (p: string) => {
@@ -178,6 +180,17 @@ const App: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+  if (hovered) {
+    setHoveredPathsSeen((prev) => {
+      if (prev.has(hovered)) return prev;
+      const copy = new Set(prev);
+      copy.add(hovered);
+      return copy;
+    });
+  }
+}, [hovered]);
+
   // Hover info
   const computeCdInfo = () => {
     if (!hovered) return null;
@@ -199,6 +212,110 @@ const App: React.FC = () => {
   };
 
   const cdInfo = computeCdInfo();
+
+  // ----------- AUTOCOMPLETE & MISSIONS HELPERS -----------
+  const getPathCompletions = (arg: string): string[] => {
+  // Helper: Find the longest common prefix among an array of strings
+  const longestCommonPrefix = (arr: string[]): string => {
+    if (arr.length === 0) return "";
+    let prefix = arr[0];
+    for (let i = 1; i < arr.length; i++) {
+      while (arr[i].indexOf(prefix) !== 0) {
+        prefix = prefix.slice(0, -1);
+        if (prefix === "") return "";
+      }
+    }
+    return prefix;
+  };
+    let baseDir: string;
+    let prefix: string;
+    if (arg.startsWith("/")) {
+      if (arg.endsWith("/")) {
+        baseDir = normalizePath(arg);
+        prefix = "";
+      } else {
+        const idx = arg.lastIndexOf("/");
+        if (idx === -1 || idx === 0) {
+          baseDir = "/";
+          prefix = arg.slice(1);
+        } else {
+          baseDir = normalizePath(arg.slice(0, idx));
+          prefix = arg.slice(idx + 1);
+        }
+      }
+    } else {
+      if (arg.endsWith("/")) {
+        baseDir = normalizePath(joinPaths(cwd, arg));
+        prefix = "";
+      } else {
+        const idx = arg.lastIndexOf("/");
+        if (idx === -1) {
+          baseDir = cwd;
+          prefix = arg;
+        } else {
+          baseDir = normalizePath(joinPaths(cwd, arg.slice(0, idx)));
+          prefix = arg.slice(idx + 1);
+        }
+      }
+    }
+    const node = findNodeByPath(fileSystem, baseDir);
+    if (!node || node.type !== "dir" || !node.children) return [];
+    const matches = node.children
+      .filter((c) => c.name.startsWith(prefix))
+      .map((c) => {
+        let suggestionPath: string;
+        if (arg.startsWith("/")) {
+          suggestionPath = baseDir === "/" ? `/${c.name}` : `${baseDir}/${c.name}`;
+        } else {
+          if (arg.includes("/")) {
+            suggestionPath = `${arg.slice(0, arg.lastIndexOf("/") + 1)}${c.name}`;
+          } else {
+            suggestionPath = c.name;
+          }
+        }
+        return c.type === "dir" ? suggestionPath + "/" : suggestionPath;
+      });
+    return matches.slice(0, 8);
+  };
+
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  useEffect(() => {
+    const parts = input.trim().split(" ").filter(Boolean);
+    if (parts.length >= 2 && (parts[0] === "cd" || parts[0] === "ls")) {
+      const arg = parts.slice(1).join(" ");
+      setSuggestions(getPathCompletions(arg));
+    } else {
+      setSuggestions([]);
+    }
+  }, [input, cwd]);
+
+  const missions = [
+    {
+      id: "nav-research",
+      description: "Navigate to /home/user/Documents/Research",
+      isComplete: () => normalizePath(cwd) === "/home/user/Documents/Research"
+    },
+    {
+      id: "ls-research",
+      description: "Run ls on /home/user/Documents/Research and verify example.fasta is listed",
+      isComplete: () =>
+        lsOutput?.path === "/home/user/Documents/Research" &&
+        lsOutput.entries.some((e) => e.name === "example.fasta")
+    }
+  ];
+
+  useEffect(() => {
+    const segments = normalizePath(cwd).slice(1).split("/").filter(Boolean);
+    setExpanded((prev) => {
+      const copy = new Set(prev);
+      let acc = "";
+      for (const segment of segments) {
+        acc = acc + "/" + segment;
+        copy.add(normalizePath(acc));
+      }
+      return copy;
+    });
+  }, [cwd]);
 
   return (
     <div className="app">
@@ -226,6 +343,22 @@ const App: React.FC = () => {
         </div>
 
         <div className="right">
+          <div className="info-block">
+            <div className="section">
+              <div className="label">Exercises</div>
+              <div>
+                {missions.filter((m) => m.isComplete()).length} / {missions.length} complete
+              </div>
+              <ul style={{ paddingLeft: 16, marginTop: 6 }}>
+                {missions.map((m) => (
+                  <li key={m.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span>{m.isComplete() ? "✅" : "⬜"}</span>
+                    <span>{m.description}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
           <div className="shell">
             <form onSubmit={handleShellSubmit}>
               <label htmlFor="shell-input" className="visually-hidden">
@@ -238,11 +371,48 @@ const App: React.FC = () => {
                   aria-label="Shell input"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Tab") {
+                      e.preventDefault();
+                      if (suggestions.length === 0) return;
+                      const parts = input.trim().split(" ").filter(Boolean);
+                      const cmd = parts[0] || "";
+                      if (suggestions.length === 1) {
+                        let completion = suggestions[0];
+                        if (!completion.endsWith("/")) completion = completion + " ";
+                        setInput(`${cmd} ${completion}`);
+                      } else {
+                        const lcp = longestCommonPrefix(suggestions);
+                        if (lcp) {
+                          setInput(`${cmd} ${lcp}`);
+                        }
+                      }
+                    }
+                  }}
                   className="shell-input"
                   autoComplete="off"
                 />
                 <button type="submit">Run</button>
-              </div>  
+              </div>
+              {suggestions.length > 0 && (
+                <div className="autocomplete-suggestions">
+                  {suggestions.map((s) => (
+                    <div
+                      key={s}
+                      className="suggestion"
+                      onClick={() => {
+                        const parts = input.trim().split(" ").filter(Boolean);
+                        const cmd = parts[0];
+                        const newInput = `${cmd} ${s}` + (s.endsWith("/") ? "" : " ");
+                        setInput(newInput);
+                        setSuggestions([]);
+                      }}
+                    >
+                      {s}
+                    </div>
+                  ))}
+                </div>
+              )}
             </form>
             {lsOutput && (
               <div className="section">

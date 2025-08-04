@@ -96,6 +96,14 @@ export const fileSystem: FSNode = {
                   name: "Notes",
                   type: "dir",
                   children: [{ name: "meeting.txt", type: "file" }]
+                },
+                {
+                  name: "Research",
+                  type: "dir",
+                  children: [
+                    { name: "example.fasta", type: "file" },
+                    { name: "variants.vcf", type: "file" }
+                  ]
                 }
               ]
             },
