@@ -841,46 +841,30 @@ const App: React.FC = () => {
 
   const [suggestions, setSuggestions] = useState<string[]>([]);
   useEffect(() => {
-    const COMMANDS = ["cd", "ls", "cat", "head", "tail", "wc", "grep", "cut"];
-    // operate on last pipe stage only
+    // Only complete file/folder paths, never suggest command names.
     const stages = input.split("|").map((s) => s);
     const lastStage = stages[stages.length - 1];
     const trimmedStage = lastStage.trimStart();
     const tokens = trimmedStage.trim().split(/\s+/).filter(Boolean);
-
-    // if no tokens in last stage, suggest command names
-    if (tokens.length === 0) {
-      setSuggestions(COMMANDS);
-      return;
-    }
-
-    // if only partial command (no space after it), suggest commands matching prefix
-    if (tokens.length === 1 && !/\s$/.test(lastStage)) {
-      const prefix = tokens[0];
-      setSuggestions(COMMANDS.filter((c) => c.startsWith(prefix)));
-      return;
-    }
-
-    // determine command in this stage and possibly arg to complete
-    const cmd = tokens[0];
-    let argForCompletion = "";
     const stageEndsWithSpace = /\s$/.test(lastStage);
 
+    let argForCompletion: string | null = null;
+    if (tokens.length === 0) {
+      setSuggestions([]);
+      return;
+    }
+    const cmd = tokens[0];
     if (cmd === "cd" || cmd === "ls") {
       if (stageEndsWithSpace) {
         argForCompletion = "";
-      } else {
-        if (tokens.length >= 2) {
-          argForCompletion = tokens[tokens.length - 1];
-        }
+      } else if (tokens.length >= 2) {
+        argForCompletion = tokens[tokens.length - 1];
       }
     } else if (["cat", "head", "tail", "wc", "cut"].includes(cmd)) {
       if (stageEndsWithSpace) {
         argForCompletion = "";
-      } else {
-        if (tokens.length >= 2) {
-          argForCompletion = tokens[tokens.length - 1];
-        }
+      } else if (tokens.length >= 2) {
+        argForCompletion = tokens[tokens.length - 1];
       }
     } else if (cmd === "grep") {
       // grep <pattern> <file>
@@ -890,13 +874,7 @@ const App: React.FC = () => {
         } else {
           argForCompletion = tokens[tokens.length - 1];
         }
-      } else {
-        setSuggestions([]);
-        return;
       }
-    } else {
-      setSuggestions([]);
-      return;
     }
 
     if (argForCompletion !== null) {
