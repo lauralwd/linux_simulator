@@ -242,8 +242,31 @@ const App: React.FC = () => {
                   autoComplete="off"
                 />
                 <button type="submit">Run</button>
-              </div>
+              </div>  
             </form>
+            {lsOutput && (
+              <div className="section">
+                <div className="label">
+                  Last <code>ls</code> output at <code>{lsOutput.path}</code>:
+                </div>
+                <div className="code-block" style={{ padding: "6px 12px" }}>
+                  {lsOutput.entries.length === 0 ? (
+                    <div className="muted">(empty)</div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      {lsOutput.entries.map((e) => (
+                        <div key={e.name}>
+                          <span aria-hidden="true" style={{ marginRight: 6 }}>
+                            {e.type === "dir" ? "📁" : "📄"}
+                          </span>
+                          {e.name}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
             {error && <div className="error">{error}</div>}
             <div className="hint" style={{ marginTop: 8 }}>
               <p style={{ margin: 0 }}>
@@ -291,30 +314,6 @@ const App: React.FC = () => {
                 <div className="muted">Hover over a node to see how to cd to it.</div>
               )}
             </div>
-
-            {lsOutput && (
-              <div className="section">
-                <div className="label">
-                  Last <code>ls</code> output at <code>{lsOutput.path}</code>:
-                </div>
-                <div className="code-block" style={{ padding: "6px 12px" }}>
-                  {lsOutput.entries.length === 0 ? (
-                    <div className="muted">(empty)</div>
-                  ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                      {lsOutput.entries.map((e) => (
-                        <div key={e.name}>
-                          <span aria-hidden="true" style={{ marginRight: 6 }}>
-                            {e.type === "dir" ? "📁" : "📄"}
-                          </span>
-                          {e.name}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
 
           <div className="hint">
