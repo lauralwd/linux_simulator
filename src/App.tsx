@@ -918,17 +918,16 @@ const App: React.FC = () => {
   }, [input, cwd]);
 
   const missions = [
-    { id: "list-home", description: "List contents of home directory", isComplete: () => lsOutput?.path === "/home/user" && !lsOutput?.showAll },
-    { id: "show-hidden-home", description: "Show hidden files in home directory", isComplete: () => lsOutput?.path === "/home/user" && lsOutput?.showAll },
-    { id: "view-readme", description: "View README.txt content", isComplete: () => (textOutput?.toLowerCase().includes("filesystem visualizer") ?? false) },
-    { id: "cd-thesis", description: "Change directory to /home/user/Documents/Thesis", isComplete: () => normalizePath(cwd) === "/home/user/Documents/Thesis" },
+    { id: "list-home", description: "List contents of your home directory", isComplete: () => lsOutput?.path === "/home/user" && !lsOutput?.showAll },
+    { id: "show-hidden-home", description: "Show hidden files in your home directory", isComplete: () => lsOutput?.path === "/home/user" && lsOutput?.showAll },
+    { id: "view-readme", description: "View (cat) README.txt content", isComplete: () => (textOutput?.toLowerCase().includes("filesystem visualizer") ?? false) },
+    { id: "cd-thesis", description: "Change directory (cd) to /home/user/Documents/Thesis", isComplete: () => normalizePath(cwd) === "/home/user/Documents/Thesis" },
     { id: "head-chapter1", description: "Show first 5 lines of chapter1.md", isComplete: () => textOutput?.includes("# Chapter 1: Introduction") ?? false },
-    { id: "tail-chapter2", description: "Show last lines of chapter2.md (methods)", isComplete: () => (textOutput?.includes("1. Data collection") && textOutput?.includes("2. Analysis")) ?? false },
+    { id: "tail-chapter2", description: "Show last lines of chapter2.md", isComplete: () => (textOutput?.includes("1. Data collection") && textOutput?.includes("2. Analysis")) ?? false },
     { id: "find-example-fasta", description: "Navigate the home folder to find example.fasta", isComplete: () => normalizePath(cwd) === "/home/user/Documents/Research" },
-    { id: "count-fasta-seqs", description: "Count sequences in example.fasta (e.g., grep '^>' example.fasta | wc -l or grep -c '^>' example.fasta)", isComplete: () => textOutput?.trim().startsWith("3") ?? false },
+    { id: "count-fasta-seqs", description: "Count sequences in example.fasta (Use grep '^>' to find fasta headers)", isComplete: () => textOutput?.trim().startsWith("3") ?? false },
     { id: "thesis-sizes", description: "List items in Thesis directory with human-readable sizes and block counts using ls -lhs", isComplete: () => lsOutput?.path === "/home/user/Documents/Thesis" && lsOutput?.long && lsOutput?.human && lsOutput?.blocks },
-    { id: "extract-treated-sample-ids", description: "From sample metadata, extract sample IDs of treated samples", isComplete: () => textOutput?.includes("s2") && textOutput?.includes("s4") },
-    { id: "sample-id-condition", description: "Extract sample IDs and conditions from sample metadata", isComplete: () => (textOutput?.includes("sample_id") && textOutput?.includes("control")) ?? false },
+    { id: "sample-id-condition", description: "Extract sample IDs and conditions from sample metadata in Laura's Research folder", isComplete: () => (textOutput?.includes("sample_id") && textOutput?.includes("control")) ?? false },
     { id: "search-filesystem", description: "Search for the word 'filesystem' in README.txt", isComplete: () => {
         if (!textOutput) return false;
         if (!lastCommand) return false;
