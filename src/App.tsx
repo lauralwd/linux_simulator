@@ -147,6 +147,14 @@ const App: React.FC = () => {
   // Arrow-key navigation
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // if focus is in input/textarea or the shell input, don't intercept arrow keys (allow editing)
+      const active = document.activeElement as HTMLElement | null;
+      if (
+        active &&
+        (active.id === "shell-input" || active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable)
+      ) {
+        return;
+      }
       if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
         e.preventDefault();
         const segments = normalizePath(cwd).slice(1).split("/").filter(Boolean);
