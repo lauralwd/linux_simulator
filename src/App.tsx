@@ -211,6 +211,8 @@ const App: React.FC = () => {
     return new Set();
   });
   const [lastCommand, setLastCommand] = useState<string | null>(null);
+  const [history, setHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState<number | null>(null);
 
   const setCwd = useCallback(
     (p: string) => {
@@ -342,6 +344,8 @@ const App: React.FC = () => {
     setLsOutput(null);
     const trimmed = input.trim();
     setLastCommand(trimmed);
+    setHistory((prev) => [...prev, trimmed]);
+    setHistoryIndex(null);
     if (trimmed === "") return;
 
     // Helper to get file content by path (relative to cwd if not absolute)
@@ -1053,8 +1057,36 @@ const App: React.FC = () => {
                   id="shell-input"
                   aria-label="Shell input"
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={(e) => { setInput(e.target.value); setHistoryIndex(null); }}
                   onKeyDown={(e) => {
+                    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+                      e.preventDefault();
+                      if (e.key === "ArrowUp") {
+                        setHistoryIndex((prev) => {
+                          let newIndex: number | null;
+                          if (prev === null) newIndex = history.length - 1;
+                          else newIndex = Math.max(0, prev - 1);
+                          if (newIndex !== null && history[newIndex] !== undefined) {
+                            setInput(history[newIndex]);
+                          }
+                          return newIndex;
+                        });
+                      } else {
+                        // ArrowDown
+                        setHistoryIndex((prev) => {
+                          if (prev === null) return null;
+                          const newIndex = prev + 1;
+                          if (newIndex >= history.length) {
+                            setInput("");
+                            return null;
+                          } else {
+                            setInput(history[newIndex]);
+                            return newIndex;
+                          }
+                        });
+                      }
+                      return;
+                    }
                     if (e.key === "Tab") {
                       e.preventDefault();
                       if (suggestions.length === 0) return;
