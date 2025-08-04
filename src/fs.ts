@@ -176,7 +176,111 @@ root.render(<App />);` }
             {
               name: "Downloads",
               type: "dir",
-              children: [{ name: "installer.sh", type: "file" }]
+              children: [
+                { name: "installer.sh", type: "file" },
+                { name: "gene_annotations.tsv", type: "file", content: `gene_id	description
+
+gene001	Protein kinase involved in cell cycle regulation
+gene002	Serine/threonine kinase in signal transduction
+gene003	Tyrosine kinase receptor
+gene004	Dual-specificity kinase for stress response
+gene005	Protein kinase regulator
+gene006	MAP kinase involved in growth
+gene007	Cyclin-dependent kinase
+gene008	Lipid kinase for membrane remodeling
+gene009	Histidine kinase sensor
+gene010	Mitogen-activated protein kinase
+gene011	Receptor tyrosine kinase
+gene012	Calcium/calmodulin-dependent kinase
+gene013	Casein kinase involved in phosphorylation
+gene014	AMP-activated protein kinase
+gene015	Glycogen synthase kinase
+gene016	Non-receptor tyrosine kinase
+gene017	Protein kinase A regulatory subunit
+gene018	Protein kinase C isoform
+gene019	Kinase scaffold protein
+gene020	Stress-activated protein kinase
+gene021	Transcription factor
+gene022	Metabolic enzyme
+gene023	Membrane transporter
+gene024	DNA binding protein
+gene025	RNA helicase
+gene026	Structural component
+gene027	Chaperone protein
+gene028	Ubiquitin ligase
+gene029	Signal peptide receptor
+gene030	DNA polymerase
+gene031	Mitochondrial enzyme
+gene032	Cytoskeletal protein
+gene033	Adaptor protein
+gene034	GTPase activating protein
+gene035	Protease
+gene036	Ribosomal protein
+gene037	Translation initiation factor
+gene038	RNA polymerase subunit
+gene039	Oxidoreductase
+gene040	Cell adhesion molecule
+gene041	Receptor serine/threonine kinase
+gene042	Tyrosine kinase adaptor
+gene043	Lipid kinase in signaling
+gene044	Protein kinase involved in apoptosis
+gene045	Cell cycle kinase
+gene046	Stress response kinase
+gene047	Regulatory kinase subunit
+gene048	Signal transduction kinase
+gene049	Growth factor receptor kinase
+gene050	Kinase with SH2 domain
+gene051	Kinase scaffold protein variant
+gene052	Cyclin-dependent kinase inhibitor
+gene053	MAPK kinase kinase
+gene054	Calcium-dependent kinase
+gene055	Protein kinase D family member
+gene056	Serine/threonine-protein kinase
+gene057	Receptor tyrosine kinase-like orphan receptor
+gene058	Tyrosine-protein kinase
+gene059	Stress-activated kinase module
+gene060	Cell differentiation kinase
+gene061	Enzyme regulator
+gene062	Phosphatase
+gene063	Zinc finger transcription factor
+gene064	Ion channel
+gene065	Methyltransferase
+gene066	Helicase
+gene067	Glycosyltransferase
+gene068	Protein kinase-like pseudokinase
+gene069	Nuclear receptor
+gene070	Signal peptidase
+gene071	GTP-binding protein
+gene072	DNA ligase
+gene073	Proteasome subunit
+gene074	Membrane receptor
+gene075	Heat shock protein
+gene076	RNA splicing factor
+gene077	Transcriptional coactivator
+gene078	Translation elongation factor
+gene079	Non-coding RNA binding protein
+gene080	Mitochondrial transporter
+gene081	Receptor tyrosine kinase
+gene082	Serine/threonine kinase regulator
+gene083	Protein kinase autoinhibitor
+gene084	Dual-specificity kinase scaffold
+gene085	Lipid signaling kinase
+gene086	Cell growth kinase
+gene087	Phosphoinositide 3-kinase
+gene088	Tyrosine kinase substrate
+gene089	Protein kinase interacting protein
+gene090	MAP kinase phosphatase
+gene091	Receptor kinase-like protein
+gene092	Stress-activated protein kinase regulatory subunit
+gene093	Cytokine receptor-associated kinase
+gene094	Kinase adaptor protein
+gene095	Focal adhesion kinase
+gene096	Cellular differentiation kinase
+gene097	Non-kinase metabolic enzyme
+gene098	Signal transduction regulator
+gene099	Protein folding chaperone
+gene100	Gene expression modulator` }
+              ]
             },
             {
               name: "Music",

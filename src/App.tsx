@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { fileSystem, FSNode } from "./fs";
 import { DirectoryTree } from "./components/DirectoryTree";
 import { normalizePath, joinPaths, relativePath } from "./utils/path";
@@ -984,7 +984,7 @@ const App: React.FC = () => {
           if (!cmd.includes("readme")) return false;
           return true;
         } },
-        { id: "find-example-fasta", description: "Browse the home folder via command line to find example.fasta", isComplete: () => normalizePath(cwd) === "/home/user/Documents/Research" },
+        { id: "find-example-fasta", description: "Browse the home folder via command line to find example.fasta then cd to that folder", isComplete: () => normalizePath(cwd) === "/home/user/Documents/Research" },
       ]
     },
     {
@@ -994,7 +994,7 @@ const App: React.FC = () => {
         { id: "thesis-sizes", description: "List items in Thesis directory with human-readable sizes and block counts using ls -lhs", isComplete: () => lsOutput?.path === "/home/user/Documents/Thesis" && lsOutput?.long && lsOutput?.human && lsOutput?.blocks },
         {
           id: "sample-id-condition",
-          description: "Extract sample IDs and conditions from sample metadata in Laura's Research folder using cut -f1,2",
+          description: "Extract sample IDs and conditions columns/fields from sample metadata in Laura's Research folder",
           isComplete: () => {
             if (!textOutput) return false;
             if (!lastCommand) return false;
@@ -1028,19 +1028,27 @@ const App: React.FC = () => {
     {
       groupName: "Projects & Data",
       missions: [
-        { id: "count-expenses", description: "Count number of expense entries (excluding header) in expenses.csv", isComplete: () => { const t = textOutput?.trim(); if (!t) return false; return t.split(/\s+/)[0] === "4"; } },
-                {
+        { id: "count-expenses", description: "Count number of expense entries (excluding header) in expenses.csv in /home/user/Examples", isComplete: () => { const t = textOutput?.trim(); if (!t) return false; return t.split(/\s+/)[0] === "4"; } },
+        {
           id: "count-pipeline-errors",
-          description: "Count number of errors in pipeline.log using grep and wc",
+          description: "Count number of errors in Laura's genomics pipeline.log using grep and wc",
           isComplete: () => {
             if (!textOutput) return false;
             if (!lastCommand) return false;
             const lc = lastCommand.toLowerCase();
             if (!lc.includes("grep") || !lc.includes("error") || !lc.includes("pipeline.log")) return false;
-            const usedCount = lc.includes("-c") || lc.includes("| wc -l");
-            if (!usedCount) return false;
+            // Accept -c or piping to wc -l with optional spaces
+            if (!(/-c\b/.test(lc) || /\|\s*wc\s*-l\b/.test(lc))) return false;
             const out = textOutput.trim();
-            return /^\d+$/.test(out);
+            let count = 0;
+            const numMatch = out.match(/^(\d+)/);
+            if (numMatch) {
+              count = parseInt(numMatch[1], 10);
+            } else {
+              // fallback: count ERROR lines from raw grep output
+              count = (out.match(/error/gi) || []).length;
+            }
+            return count === 2;
           }
         },
         {
@@ -1057,18 +1065,18 @@ const App: React.FC = () => {
         },
         {
           id: "find-kinase-genes",
-          description: "Find genes annotated with 'kinase' in gene_annotations.tsv",
+          description: "Find genes annotated with 'kinase' in your downloaded gene_annotations.tsv",
           isComplete: () => {
             if (!textOutput) return false;
             if (!lastCommand) return false;
             const lc = lastCommand.toLowerCase();
             if (!lc.includes("grep") || !lc.includes("kinase") || !lc.includes("gene_annotations.tsv")) return false;
-            return /geneA|geneC|geneE/.test(textOutput);
+            return /gene001|gene002|gene041/.test(textOutput);
           }
         },
         {
           id: "count-html-webapp",
-          description: "Count .html files in webapp project",
+          description: "Count .html files in webapp project without using `wc`",
           isComplete: () => {
             if (!textOutput) return false;
             if (!lastCommand) return false;
@@ -1089,13 +1097,42 @@ const App: React.FC = () => {
     setCompletedMissions((prev) => {
       const copy = new Set(prev);
       allMissions.forEach((group) => {
-        group.missions.forEach((m) => {
-          if (m.isComplete()) copy.add(m.id);
-        });
+        for (const m of group.missions) {
+          if (copy.has(m.id)) continue;
+          if (m.isComplete()) {
+            const idx = group.missions.findIndex((x) => x.id === m.id);
+            let allPrev = true;
+            for (let i = 0; i < idx; i++) {
+              if (!copy.has(group.missions[i].id)) {
+                allPrev = false;
+                break;
+              }
+            }
+            if (allPrev) {
+              copy.add(m.id);
+            }
+          }
+        }
       });
       return copy;
     });
   }, [cwd, lsOutput, textOutput, lastCommand, allMissions]);
+
+  // Track previous completed missions for auto-advance logic
+  const prevCompletedRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const currentGroup = allMissions[currentGroupIndex];
+    const finalMission = currentGroup.missions[currentGroup.missions.length - 1];
+    const wasFinalDoneBefore = prevCompletedRef.current.has(finalMission.id);
+    const isFinalDoneNow = completedMissions.has(finalMission.id);
+    // auto-advance only when the final mission has just become complete
+    if (!wasFinalDoneBefore && isFinalDoneNow && currentGroupIndex < allMissions.length - 1) {
+      setCurrentGroupIndex((i) => i + 1);
+    }
+    // update previous state
+    prevCompletedRef.current = new Set(completedMissions);
+  }, [completedMissions, currentGroupIndex, allMissions]);
 
   useEffect(() => {
     localStorage.setItem("completedMissions", JSON.stringify(Array.from(completedMissions)));
@@ -1173,7 +1210,7 @@ const App: React.FC = () => {
                   {(() => {
                     const group = allMissions[currentGroupIndex];
                     const groupMissions = group.missions;
-                    const completedCount = groupMissions.filter((m) => completedMissions.has(m.id) || m.isComplete()).length;
+                  const completedCount = groupMissions.filter((m) => completedMissions.has(m.id)).length;
                     return (
                       <>
                         {completedCount} / {groupMissions.length} complete in <strong>{group.groupName}</strong>
@@ -1218,7 +1255,7 @@ const App: React.FC = () => {
                     key={m.id}
                     style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}
                   >
-                    <span>{completedMissions.has(m.id) || m.isComplete() ? "✅" : "⬜"}</span>
+                    <span>{completedMissions.has(m.id) ? "✅" : "⬜"}</span>
                     <span>{m.description}</span>
                   </li>
                 ))}
@@ -1227,7 +1264,7 @@ const App: React.FC = () => {
               <div style={{ marginTop: 8, fontSize: "0.95em", color: "#666" }}>
                 {(() => {
                   const totalCompleted = allMissions.reduce((acc, group) =>
-                    acc + group.missions.filter((m) => completedMissions.has(m.id) || m.isComplete()).length, 0);
+                    acc + group.missions.filter((m) => completedMissions.has(m.id)).length, 0);
                   const totalMissions = allMissions.reduce((acc, group) => acc + group.missions.length, 0);
                   return (
                     <span>
