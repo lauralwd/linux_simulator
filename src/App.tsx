@@ -1,3 +1,15 @@
+  // Animated checkmark for exercise completion
+  const Checkmark: React.FC<{ done: boolean }> = ({ done }) => {
+    const [animate, setAnimate] = React.useState(false);
+    React.useEffect(() => {
+      if (done) {
+        setAnimate(true);
+        const t = setTimeout(() => setAnimate(false), 350);
+        return () => clearTimeout(t);
+      }
+    }, [done]);
+    return <span className={`exercise-checkmark ${animate ? "pop" : ""}`}>{done ? "✅" : "⬜"}</span>;
+  };
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { fileSystem, FSNode } from "./fs";
 import { DirectoryTree } from "./components/DirectoryTree";
@@ -1170,15 +1182,19 @@ const App: React.FC = () => {
       <div className="panel">
         <div className="left">
           <div className="tree-controls" style={{ marginBottom: 8 }}>
-            <label>
-              <input
-                type="checkbox"
-                checked={showHiddenInTree}
-                onChange={(e) => setShowHiddenInTree(e.target.checked)}
-              />{" "}
-              Show hidden files
-            </label>
-            <button style={{ marginLeft: 12 }} onClick={collapseAll} aria-label="Collapse all folders">
+            <button
+              onClick={() => setShowHiddenInTree((v) => !v)}
+              aria-pressed={showHiddenInTree}
+              aria-label={showHiddenInTree ? "Hide hidden files" : "Show hidden files"}
+              style={{ marginRight: 12 }}
+            >
+              {showHiddenInTree ? "Hide hidden files" : "Show hidden files"}
+            </button>
+            <button
+              style={{ marginLeft: 12 }}
+              onClick={collapseAll}
+              aria-label="Collapse all folders"
+            >
               Collapse all folders
             </button>
           </div>
@@ -1201,7 +1217,7 @@ const App: React.FC = () => {
         </div>
 
         <div className="right">
-          <div className="info-block">
+          <div className="info-block exercise-card">
             <div className="section">
               <div className="label">Exercises</div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1224,38 +1240,47 @@ const App: React.FC = () => {
                     localStorage.removeItem("completedMissions");
                   }}
                   style={{ marginLeft: 12 }}
+                  aria-label="Reset all exercises"
                 >
                   Reset All
                 </button>
               </div>
+              {/* Hint above tabs */}
+              <div
+                role="note"
+                style={{
+                  fontSize: "0.75em",
+                  marginBottom: 4,
+                  color: "#555"
+                }}
+              >
+                Exercises must be completed in order. You can navigate back to earlier groups, but advancing happens only when the final task in the current group is done.
+              </div>
               {/* Tab buttons */}
               <div style={{ marginTop: 10, marginBottom: 4, display: "flex", gap: 6 }}>
-                {allMissions.map((group, idx) => (
-                  <button
-                    key={group.groupName}
-                    type="button"
-                    onClick={() => setCurrentGroupIndex(idx)}
-                    style={{
-                      fontWeight: currentGroupIndex === idx ? 700 : 400,
-                      background: currentGroupIndex === idx ? "#e0e0e0" : undefined,
-                      borderRadius: 4,
-                      border: "1px solid #aaa",
-                      padding: "2px 8px",
-                      cursor: "pointer"
-                    }}
-                  >
-                    {group.groupName}
-                  </button>
-                ))}
+                {allMissions.map((group, idx) => {
+                  const groupDone = group.missions.every((m) => completedMissions.has(m.id));
+                  return (
+                    <button
+                      key={group.groupName}
+                      type="button"
+                      aria-label={`${group.groupName} exercises tab${currentGroupIndex === idx ? " (active)" : ""}`}
+                      onClick={() => setCurrentGroupIndex(idx)}
+                      className={`tab-button ${currentGroupIndex === idx ? "active" : ""} ${groupDone ? "completed" : ""}`}
+                    >
+                      {group.groupName} {groupDone ? <span aria-hidden="true">✓</span> : null}
+                    </button>
+                  );
+                })}
               </div>
               {/* List only missions for current group */}
-              <ul style={{ paddingLeft: 16, marginTop: 6 }}>
+              <ul style={{ paddingLeft: 16, marginTop: 6 }} aria-label="Exercise list">
                 {allMissions[currentGroupIndex].missions.map((m) => (
                   <li
                     key={m.id}
                     style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}
                   >
-                    <span>{completedMissions.has(m.id) ? "✅" : "⬜"}</span>
+                    <Checkmark done={completedMissions.has(m.id)} />
                     <span>{m.description}</span>
                   </li>
                 ))}
@@ -1380,7 +1405,9 @@ const App: React.FC = () => {
                   className="shell-input"
                   autoComplete="off"
                 />
-                <button type="submit">Run</button>
+                <button type="submit" className="primary" aria-label="Run command">
+                  Run
+                </button>
               </div>
               {suggestions.length > 0 && (
                 <div className="autocomplete-suggestions">

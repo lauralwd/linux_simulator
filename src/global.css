@@ -7,6 +7,7 @@
   --radius: 12px;
   --transition: 250ms ease;
   --shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.1);
+  --accent: #6366f1;
 }
 
 .dark {
@@ -51,17 +52,25 @@ h1 {
   font-size: 1.5rem;
 }
 
-.controls button {
-  padding: 6px 12px;
-  border: none;
-  background: none;
+button {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid transparent;
   cursor: pointer;
   font-size: 0.9rem;
-  border-radius: 6px;
-  transition: background var(--transition);
+  transition: background var(--transition), box-shadow var(--transition), transform 120ms ease;
 }
-.controls button:hover {
-  background: rgba(255,255,255,0.05);
+button:hover {
+  filter: brightness(1.05);
+}
+button:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+button.primary {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
 }
 
 .panel {
@@ -89,9 +98,10 @@ h1 {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 12px;
-  overflow: auto;
   min-height: 400px;
   position: relative;
+  max-width: 100%;
+  overflow: auto;
 }
 
 .node-row {
@@ -124,8 +134,9 @@ h1 {
   background: var(--card);
   padding: 12px;
   border-radius: var(--radius);
-  border: 1px solid var(--border);
+  border: 1px solid var(--accent);
   margin-bottom: 4px;
+  position: relative;
 }
 
 .input-row {
@@ -194,12 +205,13 @@ h1 {
 }
 
 .code-block {
-  background: rgba(0, 0, 0, 0.03);
+  background: rgba(0, 0, 0, 0.05);
   padding: 8px 12px;
   border-radius: 6px;
   font-family: monospace;
   overflow-x: auto;
   margin: 0;
+  border: 1px solid rgba(0,0,0,0.1);
 }
 
 .subsection {
@@ -259,4 +271,56 @@ kbd {
 }
 .autocomplete-suggestions .suggestion:hover {
   background: rgba(100, 140, 255, 0.1);
+}
+.tab-button {
+  background: transparent;
+  border: 1px solid #aaa;
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-weight: 400;
+  transition: background var(--transition), box-shadow var(--transition);
+  margin-right: 4px;
+}
+.tab-button.active {
+  background: var(--accent);
+  color: white;
+  font-weight: 700;
+  border-color: var(--accent);
+}
+.tab-button.completed {
+  position: relative;
+}
+.tab-button.completed::after {
+  content: "✓";
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #22c55e;
+  color: white;
+  font-size: 0.6em;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.exercise-card {
+  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(99, 102, 241, 0.5);
+}
+
+@keyframes pop {
+  0% { transform: scale(0.8); }
+  50% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+.exercise-checkmark {
+  display: inline-block;
+  transition: transform 150ms ease;
+}
+.exercise-checkmark.pop {
+  animation: pop 0.35s ease;
 }
