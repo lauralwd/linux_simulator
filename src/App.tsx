@@ -841,23 +841,67 @@ const App: React.FC = () => {
 
   const [suggestions, setSuggestions] = useState<string[]>([]);
   useEffect(() => {
-    const parts = input.trim().split(" ").filter(Boolean);
-    if (parts.length >= 2) {
-      const cmd = parts[0];
-      let argForCompletion = "";
-      if (cmd === "cd" || cmd === "ls") {
-        argForCompletion = parts.slice(1).join(" ");
-      } else if (["cat", "head", "tail", "wc", "cut"].includes(cmd)) {
-        argForCompletion = parts[parts.length - 1];
-      } else if (cmd === "grep") {
-        if (parts.length >= 3) {
-          argForCompletion = parts[parts.length - 1];
+    const COMMANDS = ["cd", "ls", "cat", "head", "tail", "wc", "grep", "cut"];
+    // operate on last pipe stage only
+    const stages = input.split("|").map((s) => s);
+    const lastStage = stages[stages.length - 1];
+    const trimmedStage = lastStage.trimStart();
+    const tokens = trimmedStage.trim().split(/\s+/).filter(Boolean);
+
+    // if no tokens in last stage, suggest command names
+    if (tokens.length === 0) {
+      setSuggestions(COMMANDS);
+      return;
+    }
+
+    // if only partial command (no space after it), suggest commands matching prefix
+    if (tokens.length === 1 && !/\s$/.test(lastStage)) {
+      const prefix = tokens[0];
+      setSuggestions(COMMANDS.filter((c) => c.startsWith(prefix)));
+      return;
+    }
+
+    // determine command in this stage and possibly arg to complete
+    const cmd = tokens[0];
+    let argForCompletion = "";
+    const stageEndsWithSpace = /\s$/.test(lastStage);
+
+    if (cmd === "cd" || cmd === "ls") {
+      if (stageEndsWithSpace) {
+        argForCompletion = "";
+      } else {
+        if (tokens.length >= 2) {
+          argForCompletion = tokens[tokens.length - 1];
         }
       }
-      if (argForCompletion) {
-        setSuggestions(getPathCompletions(argForCompletion));
+    } else if (["cat", "head", "tail", "wc", "cut"].includes(cmd)) {
+      if (stageEndsWithSpace) {
+        argForCompletion = "";
+      } else {
+        if (tokens.length >= 2) {
+          argForCompletion = tokens[tokens.length - 1];
+        }
+      }
+    } else if (cmd === "grep") {
+      // grep <pattern> <file>
+      if (tokens.length >= 3) {
+        if (stageEndsWithSpace) {
+          argForCompletion = "";
+        } else {
+          argForCompletion = tokens[tokens.length - 1];
+        }
+      } else {
+        setSuggestions([]);
         return;
       }
+    } else {
+      setSuggestions([]);
+      return;
+    }
+
+    if (argForCompletion !== null) {
+      setSuggestions(getPathCompletions(argForCompletion));
+      return;
     }
     setSuggestions([]);
   }, [input, cwd]);
@@ -967,18 +1011,42 @@ const App: React.FC = () => {
                     if (e.key === "Tab") {
                       e.preventDefault();
                       if (suggestions.length === 0) return;
-                      const parts = input.trim().split(" ").filter(Boolean);
-                      const cmd = parts[0] || "";
-                      if (suggestions.length === 1) {
+                      // split off last pipe stage
+                      const partsByPipe = input.split("|");
+                      const lastIdx = partsByPipe.length - 1;
+                      const before = partsByPipe.slice(0, lastIdx).join("|");
+                      const lastStage = partsByPipe[lastIdx];
+                      const endsWithSpace = /\s$/.test(lastStage);
+                      const stageTrimmed = lastStage.trimStart();
+                      const tokens = stageTrimmed.trim().split(/\s+/).filter(Boolean);
+                      let newLastStage = "";
+
+                      if (tokens.length === 0) {
+                        // completing a new command in empty stage
                         let completion = suggestions[0];
                         if (!completion.endsWith("/")) completion = completion + " ";
-                        setInput(`${cmd} ${completion}`);
+                        newLastStage = completion;
+                      } else if (tokens.length === 1 && !endsWithSpace) {
+                        // completing the command name
+                        let completion = suggestions[0];
+                        if (!completion.endsWith(" ")) completion = completion + " ";
+                        // preserve leading whitespace
+                        const leading = lastStage.match(/^\s*/)?.[0] || "";
+                        newLastStage = leading + completion;
                       } else {
-                        const lcp = longestCommonPrefix(suggestions);
-                        if (lcp) {
-                          setInput(`${cmd} ${lcp}`);
-                        }
+                        // completing argument (path) in this stage
+                        const cmd = tokens[0] || "";
+                        const lastToken = tokens[tokens.length - 1];
+                        let completion = suggestions[0];
+                        // if only path and it's a directory, keep slash, else add space
+                        if (!completion.endsWith("/")) completion = completion + " ";
+                        // rebuild stage: replace lastToken with completion
+                        const prefixTokens = tokens.slice(0, -1);
+                        const leadingWhitespace = lastStage.match(/^\s*/)?.[0] || "";
+                        newLastStage = leadingWhitespace + [...prefixTokens, completion].join(" ");
                       }
+                      const rebuilt = before ? before + "|" + newLastStage : newLastStage;
+                      setInput(rebuilt);
                     }
                   }}
                   className="shell-input"
