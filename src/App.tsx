@@ -541,15 +541,24 @@ const App: React.FC = () => {
         return result;
       } else if (cmd === "grep") {
         let ignoreCase = false;
+        let countFlag = false;
         let idxGrep = 1;
         while (parts[idxGrep]?.startsWith("-") && parts[idxGrep].length > 1) {
-          if (parts[idxGrep].includes("i")) ignoreCase = true;
+          for (let j = 1; j < parts[idxGrep].length; ++j) {
+            const ch = parts[idxGrep][j];
+            if (ch === "i") ignoreCase = true;
+            if (ch === "c") countFlag = true;
+          }
           idxGrep++;
         }
-        const pattern = parts[idxGrep];
+        let pattern = parts[idxGrep];
         if (!pattern) {
           result.error = "grep: missing pattern";
           return result;
+        }
+        // strip surrounding single or double quotes if present
+        if ((pattern.startsWith("'") && pattern.endsWith("'") && pattern.length >= 2) || (pattern.startsWith("\"") && pattern.endsWith("\"") && pattern.length >= 2)) {
+          pattern = pattern.slice(1, -1);
         }
         idxGrep++;
         const filesGrep = parts.slice(idxGrep);
@@ -560,24 +569,42 @@ const App: React.FC = () => {
         } catch (e) {
           regex = null;
         }
+        const processLines = (lines: string[], name?: string) => {
+          let matchCount = 0;
+          const matched: string[] = [];
+          for (const line of lines) {
+            let match = false;
+            if (regex) {
+              match = regex.test(line);
+            } else {
+              if (ignoreCase) match = line.toLowerCase().includes(pattern.toLowerCase());
+              else match = line.includes(pattern);
+            }
+            if (match) {
+              matchCount++;
+              if (!countFlag) {
+                if (name && filesGrep.length > 1) matched.push(`${name}:${line}`);
+                else matched.push(line);
+              }
+            }
+          }
+          if (countFlag) {
+            if (name && filesGrep.length > 1) return `${name}:${matchCount}`;
+            return String(matchCount);
+          }
+          return matched.join("\n");
+        };
         if (filesGrep.length === 0) {
           if (stdin !== null) {
             const lines = stdin.split("\n");
-            for (const line of lines) {
-              let match = false;
-              if (regex) {
-                match = regex.test(line);
-              } else {
-                if (ignoreCase) match = line.toLowerCase().includes(pattern.toLowerCase());
-                else match = line.includes(pattern);
-              }
-              if (match) outLinesGrep.push(line);
-            }
+            const out = processLines(lines);
+            result.text = out;
           } else {
             result.error = "grep: missing file";
             return result;
           }
         } else {
+          const perFile: string[] = [];
           for (const raw of filesGrep) {
             const file = getFileContentLocal(raw);
             if (!file) {
@@ -585,22 +612,11 @@ const App: React.FC = () => {
               continue;
             }
             const lines = file.content.split("\n");
-            for (const line of lines) {
-              let match = false;
-              if (regex) {
-                match = regex.test(line);
-              } else {
-                if (ignoreCase) match = line.toLowerCase().includes(pattern.toLowerCase());
-                else match = line.includes(pattern);
-              }
-              if (match) {
-                if (filesGrep.length > 1) outLinesGrep.push(`${file.path}:${line}`);
-                else outLinesGrep.push(line);
-              }
-            }
+            const out = processLines(lines, file.path);
+            perFile.push(out as string);
           }
+          result.text = perFile.join("\n");
         }
-        result.text = outLinesGrep.join("\n");
         return result;
       } else if (cmd === "cut") {
         if (parts.length < 2) {
@@ -904,8 +920,8 @@ const App: React.FC = () => {
     { id: "cd-thesis", description: "Change directory to /home/user/Documents/Thesis", isComplete: () => normalizePath(cwd) === "/home/user/Documents/Thesis" },
     { id: "head-chapter1", description: "Show first 5 lines of chapter1.md", isComplete: () => textOutput?.includes("# Chapter 1: Introduction") ?? false },
     { id: "tail-chapter2", description: "Show last lines of chapter2.md (methods)", isComplete: () => (textOutput?.includes("1. Data collection") && textOutput?.includes("2. Analysis")) ?? false },
-    { id: "find-example-fasta", description: "Navigate the home folder to find example.fasta", isComplete: () => (lsOutput?.entries.some((e) => e.name === "example.fasta") ?? false) },
-    { id: "count-fasta-seqs", description: "Count sequences in example.fasta", isComplete: () => textOutput?.trim().startsWith("3") ?? false },
+    { id: "find-example-fasta", description: "Navigate the home folder to find example.fasta", isComplete: () => normalizePath(cwd) === "/home/user/Documents/Research" },
+    { id: "count-fasta-seqs", description: "Count sequences in example.fasta (e.g., grep '^>' example.fasta | wc -l or grep -c '^>' example.fasta)", isComplete: () => textOutput?.trim().startsWith("3") ?? false },
     { id: "thesis-sizes", description: "List items in Thesis directory with human-readable sizes and block counts using ls -lhs", isComplete: () => lsOutput?.path === "/home/user/Documents/Thesis" && lsOutput?.long && lsOutput?.human && lsOutput?.blocks },
     { id: "extract-treated-sample-ids", description: "From sample metadata, extract sample IDs of treated samples", isComplete: () => textOutput?.includes("s2") && textOutput?.includes("s4") },
     { id: "sample-id-condition", description: "Extract sample IDs and conditions from sample metadata", isComplete: () => (textOutput?.includes("sample_id") && textOutput?.includes("control")) ?? false },
@@ -1063,12 +1079,32 @@ const App: React.FC = () => {
                         newLastStage = leading + completion;
                       } else {
                         // completing argument (path) in this stage
-                        const cmd = tokens[0] || "";
                         const lastToken = tokens[tokens.length - 1];
-                        let completion = suggestions[0];
-                        // if only path and it's a directory, keep slash, else add space
-                        if (!completion.endsWith("/")) completion = completion + " ";
-                        // rebuild stage: replace lastToken with completion
+                        let completion = "";
+                        if (suggestions.length === 0) {
+                          completion = lastToken;
+                        } else if (suggestions.length === 1) {
+                          completion = suggestions[0];
+                        } else {
+                          // multiple candidates: use longest common prefix like bash
+                          const lcp = longestCommonPrefix(suggestions);
+                          if (lcp && lcp !== lastToken) {
+                            completion = lcp;
+                          } else {
+                            completion = suggestions[0];
+                          }
+                        }
+                        // append slash or space appropriately
+                        if (completion.endsWith("/")) {
+                          // directory: keep slash, no extra space
+                        } else if (suggestions.length === 1) {
+                          completion = completion + " ";
+                        } else if (completion !== lastToken) {
+                          // when expanding to longer common prefix, do not add space yet
+                        } else {
+                          // fallback: add space to the first suggestion if it is unambiguous
+                          completion = suggestions[0] + " ";
+                        }
                         const prefixTokens = tokens.slice(0, -1);
                         const leadingWhitespace = lastStage.match(/^\s*/)?.[0] || "";
                         newLastStage = leadingWhitespace + [...prefixTokens, completion].join(" ");
