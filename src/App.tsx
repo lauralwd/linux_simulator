@@ -38,7 +38,10 @@ const App: React.FC = () => {
   const [input, setInput] = useState<string>(`cd ${HOME}`);
   const [error, setError] = useState<string | null>(null);
   const [dark, setDark] = useState<boolean>(() => {
-    return localStorage.getItem("theme") === "dark";
+    const stored = localStorage.getItem("theme");
+    if (stored === "dark") return true;
+    if (stored === "light") return false;
+    return window.matchMedia?.("(prefers-color-scheme: dark)")?.matches ?? false;
   });
   const [lsOutput, setLsOutput] = useState<LsOutput | null>(null);
   const [textOutput, setTextOutput] = useState<string | null>(null);
@@ -127,6 +130,30 @@ const App: React.FC = () => {
     document.documentElement.classList.toggle("dark", dark);
     localStorage.setItem("theme", dark ? "dark" : "light");
   }, [dark]);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const stored = localStorage.getItem("theme");
+    const handler = (e: MediaQueryListEvent) => {
+      if (!stored) {
+        setDark(e.matches);
+      }
+    };
+    if (mq.addEventListener) {
+      mq.addEventListener("change", handler);
+    } else {
+      // @ts-ignore
+      mq.addListener(handler);
+    }
+    return () => {
+      if (mq.removeEventListener) {
+        mq.removeEventListener("change", handler);
+      } else {
+        // @ts-ignore
+        mq.removeListener(handler);
+      }
+    };
+  }, []);
 
   const listDirectory = (path: string): LsOutput | null => {
     const normalized = normalizePath(path);
@@ -522,12 +549,24 @@ const App: React.FC = () => {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   useEffect(() => {
     const parts = input.trim().split(" ").filter(Boolean);
-    if (parts.length >= 2 && (parts[0] === "cd" || parts[0] === "ls")) {
-      const arg = parts.slice(1).join(" ");
-      setSuggestions(getPathCompletions(arg));
-    } else {
-      setSuggestions([]);
+    if (parts.length >= 2) {
+      const cmd = parts[0];
+      let argForCompletion = "";
+      if (cmd === "cd" || cmd === "ls") {
+        argForCompletion = parts.slice(1).join(" ");
+      } else if (["cat", "head", "tail", "wc"].includes(cmd)) {
+        argForCompletion = parts[parts.length - 1];
+      } else if (cmd === "grep") {
+        if (parts.length >= 3) {
+          argForCompletion = parts[parts.length - 1];
+        }
+      }
+      if (argForCompletion) {
+        setSuggestions(getPathCompletions(argForCompletion));
+        return;
+      }
     }
+    setSuggestions([]);
   }, [input, cwd]);
 
   const missions = [
@@ -789,7 +828,7 @@ const App: React.FC = () => {
               <div className="section">
                 <div className="label">Output:</div>
                 <div className="code-block" style={{ padding: "6px 12px", whiteSpace: "pre-wrap", fontFamily: "monospace" }}>
-                  <pre style={{ margin: 0 }}>{textOutput}</pre>
+                  <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{textOutput}</pre>
                 </div>
               </div>
             )}
