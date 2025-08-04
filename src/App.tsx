@@ -179,6 +179,12 @@ const App: React.FC = () => {
     return SYSTEM_FOLDER_INFO[key];
   };
 
+  const expandTilde = (p: string) => {
+    if (p === "~") return HOME;
+    if (p.startsWith("~/")) return HOME + p.slice(1);
+    return p;
+  };
+
   const [cwd, setCwdRaw] = useState<string>(normalizePath(HOME));
   const [hovered, setHovered] = useState<string | null>(null);
   const [input, setInput] = useState<string>(`cd ${HOME}`);
@@ -348,11 +354,15 @@ const App: React.FC = () => {
     setHistoryIndex(null);
     if (trimmed === "") return;
 
-    // Helper to get file content by path (relative to cwd if not absolute)
+    // Helper to get file content by path (relative to cwd if not absolute), with tilde expansion
     const getFileContentLocal = (raw: string): { path: string; content: string } | null => {
       let filePath: string;
-      if (raw.startsWith("/")) filePath = normalizePath(raw);
-      else filePath = normalizePath(joinPaths(cwd, raw));
+      let expanded = raw;
+      if (raw.startsWith("~")) {
+        expanded = expandTilde(raw);
+      }
+      if (expanded.startsWith("/")) filePath = normalizePath(expanded);
+      else filePath = normalizePath(joinPaths(cwd, expanded));
       const node = findNodeByPath(fileSystem, filePath);
       if (!node || node.type !== "file") return null;
       return { path: filePath, content: node.content || "" };
@@ -400,7 +410,10 @@ const App: React.FC = () => {
           }
         }
         if (parts.length > argStart) {
-          const rawT = parts.slice(argStart).join(" ");
+          let rawT = parts.slice(argStart).join(" ");
+          if (rawT.startsWith("~")) {
+            rawT = expandTilde(rawT);
+          }
           if (rawT.startsWith("/")) targetPath = normalizePath(rawT);
           else targetPath = normalizePath(joinPaths(cwd, rawT));
         }
@@ -744,10 +757,11 @@ const App: React.FC = () => {
       }
       const targetRaw = singleParts.slice(1).join(" ");
       let target: string;
-      if (targetRaw.startsWith("/")) {
-        target = normalizePath(targetRaw);
+      const expandedRaw = targetRaw.startsWith("~") ? expandTilde(targetRaw) : targetRaw;
+      if (expandedRaw.startsWith("/")) {
+        target = normalizePath(expandedRaw);
       } else {
-        target = normalizePath(joinPaths(cwd, targetRaw));
+        target = normalizePath(joinPaths(cwd, expandedRaw));
       }
       if (isDirectory(fileSystem, target)) {
         setCwd(target);
@@ -780,10 +794,14 @@ const App: React.FC = () => {
 
   const getFileContent = (raw: string): { path: string; content: string } | null => {
     let target: string;
-    if (raw.startsWith("/")) {
-      target = normalizePath(raw);
+    let expanded = raw;
+    if (raw.startsWith("~")) {
+      expanded = expandTilde(raw);
+    }
+    if (expanded.startsWith("/")) {
+      target = normalizePath(expanded);
     } else {
-      target = normalizePath(joinPaths(cwd, raw));
+      target = normalizePath(joinPaths(cwd, expanded));
     }
     const node = findNodeByPath(fileSystem, target);
     if (!node || node.type !== "file") return null;
@@ -825,34 +843,40 @@ const App: React.FC = () => {
     return prefix;
   };
   const getPathCompletions = (arg: string): string[] => {
+    let useTildePrefix = false;
+    let processedArg = arg;
+    if (arg === "~" || arg.startsWith("~/")) {
+      useTildePrefix = true;
+      processedArg = expandTilde(arg);
+    }
     let baseDir: string;
     let prefix: string;
-    if (arg.startsWith("/")) {
-      if (arg.endsWith("/")) {
-        baseDir = normalizePath(arg);
+    if (processedArg.startsWith("/")) {
+      if (processedArg.endsWith("/")) {
+        baseDir = normalizePath(processedArg);
         prefix = "";
       } else {
-        const idx = arg.lastIndexOf("/");
+        const idx = processedArg.lastIndexOf("/");
         if (idx === -1 || idx === 0) {
           baseDir = "/";
-          prefix = arg.slice(1);
+          prefix = processedArg.slice(1);
         } else {
-          baseDir = normalizePath(arg.slice(0, idx));
-          prefix = arg.slice(idx + 1);
+          baseDir = normalizePath(processedArg.slice(0, idx));
+          prefix = processedArg.slice(idx + 1);
         }
       }
     } else {
-      if (arg.endsWith("/")) {
-        baseDir = normalizePath(joinPaths(cwd, arg));
+      if (processedArg.endsWith("/")) {
+        baseDir = normalizePath(joinPaths(cwd, processedArg));
         prefix = "";
       } else {
-        const idx = arg.lastIndexOf("/");
+        const idx = processedArg.lastIndexOf("/");
         if (idx === -1) {
           baseDir = cwd;
-          prefix = arg;
+          prefix = processedArg;
         } else {
-          baseDir = normalizePath(joinPaths(cwd, arg.slice(0, idx)));
-          prefix = arg.slice(idx + 1);
+          baseDir = normalizePath(joinPaths(cwd, processedArg.slice(0, idx)));
+          prefix = processedArg.slice(idx + 1);
         }
       }
     }
@@ -862,7 +886,7 @@ const App: React.FC = () => {
       .filter((c) => c.name.startsWith(prefix))
       .map((c) => {
         let suggestionPath: string;
-        if (arg.startsWith("/")) {
+        if (arg.startsWith("/") || arg.startsWith("~")) {
           suggestionPath = baseDir === "/" ? `/${c.name}` : `${baseDir}/${c.name}`;
         } else {
           if (arg.includes("/")) {
@@ -870,6 +894,9 @@ const App: React.FC = () => {
           } else {
             suggestionPath = c.name;
           }
+        }
+        if (useTildePrefix && suggestionPath.startsWith(HOME)) {
+          suggestionPath = "~" + suggestionPath.slice(HOME.length);
         }
         return c.type === "dir" ? suggestionPath + "/" : suggestionPath;
       });
@@ -976,6 +1003,11 @@ const App: React.FC = () => {
     });
   }, [cwd]);
 
+  const getPromptCwd = () => {
+    if (cwd === "/home/user") return "~";
+    if (cwd.startsWith("/home/user/")) return "~" + cwd.slice("/home/user".length);
+    return cwd;
+  };
   return (
     <div className="app">
       <header>
@@ -1052,7 +1084,7 @@ const App: React.FC = () => {
                 Shell input
               </label>
               <div className="input-row">
-                <code className="prompt">user@demo:$</code>
+                <code className="prompt">{`user@demo:${getPromptCwd()}$`}</code>
                 <input
                   id="shell-input"
                   aria-label="Shell input"
