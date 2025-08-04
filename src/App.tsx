@@ -49,6 +49,10 @@ const App: React.FC = () => {
     grep: {
       usage: "grep [-i] <pattern> <file>...",
       detail: "Search for pattern in file(s). -i for case-insensitive."
+    },
+    cut: {
+      usage: "cut [-d DELIM] -f LIST <file>...",
+      detail: "Select specified fields from each line, splitting on DELIM (default tab). LIST is comma-separated field numbers. Examples: cut -f1,3 file.txt or cut -d ':' -f2 file.txt."
     }
   };
 
@@ -439,30 +443,30 @@ const App: React.FC = () => {
         return;
       }
       let ignoreCase = false;
-      let idx = 1;
-      while (parts[idx]?.startsWith("-") && parts[idx].length > 1) {
-        if (parts[idx].includes("i")) ignoreCase = true;
-        idx++;
+      let idxGrep = 1;
+      while (parts[idxGrep]?.startsWith("-") && parts[idxGrep].length > 1) {
+        if (parts[idxGrep].includes("i")) ignoreCase = true;
+        idxGrep++;
       }
-      const pattern = parts[idx];
+      const pattern = parts[idxGrep];
       if (!pattern) {
         setError("grep: missing pattern");
         return;
       }
-      idx++;
-      const files = parts.slice(idx);
-      if (files.length === 0) {
+      idxGrep++;
+      const filesGrep = parts.slice(idxGrep);
+      if (filesGrep.length === 0) {
         setError("grep: missing file");
         return;
       }
-      const outLines: string[] = [];
+      const outLinesGrep: string[] = [];
       let regex: RegExp | null = null;
       try {
         regex = new RegExp(pattern, ignoreCase ? "i" : "");
       } catch (e) {
         regex = null;
       }
-      for (const raw of files) {
+      for (const raw of filesGrep) {
         const file = getFileContent(raw);
         if (!file) {
           setError(`grep: ${raw}: No such file`);
@@ -481,18 +485,85 @@ const App: React.FC = () => {
             }
           }
           if (match) {
-            if (files.length > 1) {
-              outLines.push(`${file.path}:${line}`);
+            if (filesGrep.length > 1) {
+              outLinesGrep.push(`${file.path}:${line}`);
             } else {
-              outLines.push(line);
+              outLinesGrep.push(line);
             }
           }
         }
       }
-      setTextOutput(outLines.join("\n"));
+      setTextOutput(outLinesGrep.join("\n"));
+      setInput("");
+    } else if (cmd === "cut") {
+      if (parts.length < 2) {
+        setError("cut: missing operand");
+        return;
+      }
+      let fieldsArg: string | null = null;
+      let delim = "\t";
+      let idxCut = 1;
+      while (idxCut < parts.length) {
+        const p = parts[idxCut];
+        if (p.startsWith("-f")) {
+          if (p === "-f") {
+            idxCut++;
+            fieldsArg = parts[idxCut] || null;
+          } else {
+            fieldsArg = p.slice(2);
+          }
+          idxCut++;
+        } else if (p.startsWith("-d")) {
+          if (p === "-d") {
+            idxCut++;
+            delim = parts[idxCut] || "\t";
+          } else {
+            delim = p.slice(2);
+          }
+          idxCut++;
+        } else {
+          break;
+        }
+      }
+      if (!fieldsArg) {
+        setError("cut: missing -f option");
+        return;
+      }
+      const filesCut = parts.slice(idxCut);
+      if (filesCut.length === 0) {
+        setError("cut: missing file");
+        return;
+      }
+      const delimChar = delim === "\\t" ? "\t" : delim;
+      const fieldNums = fieldsArg
+        .split(",")
+        .map((f) => parseInt(f, 10))
+        .filter((n) => !isNaN(n) && n > 0);
+      if (fieldNums.length === 0) {
+        setError("cut: invalid field list");
+        return;
+      }
+      const outLinesCut: string[] = [];
+      for (const raw of filesCut) {
+        const file = getFileContent(raw);
+        if (!file) {
+          setError(`cut: ${raw}: No such file`);
+          continue;
+        }
+        const lines = file.content.split("\n");
+        if (filesCut.length > 1) {
+          outLinesCut.push(`==> ${file.path} <==`);
+        }
+        for (const line of lines) {
+          const cols = line.split(delimChar);
+          const selected = fieldNums.map((n) => (n - 1 < cols.length ? cols[n - 1] : ""));
+          outLinesCut.push(selected.join(delimChar));
+        }
+      }
+      setTextOutput(outLinesCut.join("\n"));
       setInput("");
     } else {
-      setError(`Unknown command: ${cmd}. Supported: cd, ls, cat, head, tail, wc, grep.`);
+      setError(`Unknown command: ${cmd}. Supported: cd, ls, cat, head, tail, wc, grep, cut.`);
     }
   };
 
@@ -613,7 +684,7 @@ const App: React.FC = () => {
       let argForCompletion = "";
       if (cmd === "cd" || cmd === "ls") {
         argForCompletion = parts.slice(1).join(" ");
-      } else if (["cat", "head", "tail", "wc"].includes(cmd)) {
+      } else if (["cat", "head", "tail", "wc", "cut"].includes(cmd)) {
         argForCompletion = parts[parts.length - 1];
       } else if (cmd === "grep") {
         if (parts.length >= 3) {
@@ -901,7 +972,8 @@ const App: React.FC = () => {
                 <CommandWithTooltip cmdKey="head"><code>head [-n N] &lt;file&gt;</code></CommandWithTooltip><br />
                 <CommandWithTooltip cmdKey="tail"><code>tail [-n N] &lt;file&gt;</code></CommandWithTooltip><br />
                 <CommandWithTooltip cmdKey="wc"><code>wc [-l|-w|-c] &lt;file&gt;</code></CommandWithTooltip><br />
-                <CommandWithTooltip cmdKey="grep"><code>grep [-i] &lt;pattern&gt; &lt;file&gt;</code></CommandWithTooltip>.
+                <CommandWithTooltip cmdKey="grep"><code>grep [-i] &lt;pattern&gt; &lt;file&gt;</code></CommandWithTooltip><br />
+                <CommandWithTooltip cmdKey="cut"><code>cut [-d DELIM] -f LIST &lt;file&gt;...</code></CommandWithTooltip>.
               </p>
             </div>
           </div>
