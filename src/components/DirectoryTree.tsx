@@ -9,6 +9,7 @@ type Props = {
   setHoveredPath: (p: string | null) => void;
   expanded: Set<string>;
   toggleExpand: (p: string) => void;
+  showHidden: boolean;
 };
 
 const findNodeByPath = (root: FSNode, path: string): FSNode | null => {
@@ -34,6 +35,7 @@ type NodeProps = {
   registerRef: (path: string, el: HTMLDivElement | null) => void;
   expanded: Set<string>;
   toggleExpand: (p: string) => void;
+  showHidden: boolean;
 };
 
 const TreeNode: React.FC<NodeProps> = ({
@@ -45,7 +47,8 @@ const TreeNode: React.FC<NodeProps> = ({
   level,
   registerRef,
   expanded,
-  toggleExpand
+  toggleExpand,
+  showHidden
 }) => {
   const path = joinPaths(parentPath, node.name);
   const isCwd = normalizePath(cwd) === normalizePath(path);
@@ -55,6 +58,10 @@ const TreeNode: React.FC<NodeProps> = ({
   const refCallback = (el: HTMLDivElement | null) => {
     registerRef(path, el);
   };
+
+  if (node.name.startsWith('.') && !showHidden) {
+    return null;
+  }
 
   return (
     <div
@@ -94,20 +101,23 @@ const TreeNode: React.FC<NodeProps> = ({
       </div>
       {hasChildren && isExpanded && (
         <div role="group">
-          {node.children!.map((child) => (
-            <TreeNode
-              key={child.name + path}
-              node={child}
-              parentPath={path}
-              cwd={cwd}
-              setCwd={setCwd}
-              setHoveredPath={setHoveredPath}
-              level={level + 1}
-              registerRef={registerRef}
-              expanded={expanded}
-              toggleExpand={toggleExpand}
-            />
-          ))}
+          {(node.children || [])
+            .filter((c) => showHidden || !c.name.startsWith('.'))
+            .map((child) => (
+              <TreeNode
+                key={child.name + path}
+                node={child}
+                parentPath={path}
+                cwd={cwd}
+                setCwd={setCwd}
+                setHoveredPath={setHoveredPath}
+                level={level + 1}
+                registerRef={registerRef}
+                expanded={expanded}
+                toggleExpand={toggleExpand}
+                showHidden={showHidden}
+              />
+            ))}
         </div>
       )}
     </div>
@@ -120,7 +130,8 @@ export const DirectoryTree: React.FC<Props> = ({
   setCwd,
   setHoveredPath,
   expanded,
-  toggleExpand
+  toggleExpand,
+  showHidden
 }) => {
   const refMap = useRef<Map<string, HTMLDivElement>>(new Map());
 
@@ -152,6 +163,7 @@ export const DirectoryTree: React.FC<Props> = ({
         registerRef={registerRef}
         expanded={expanded}
         toggleExpand={toggleExpand}
+        showHidden={showHidden}
       />
     </div>
   );

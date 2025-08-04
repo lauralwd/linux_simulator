@@ -26,6 +26,10 @@ const isDirectory = (root: FSNode, path: string): boolean => {
 type LsOutput = {
   path: string;
   entries: { name: string; type: "dir" | "file" }[];
+  showAll: boolean;
+  long: boolean;
+  human: boolean;
+  blocks: boolean;
 };
 
 const App: React.FC = () => {
@@ -42,6 +46,9 @@ const App: React.FC = () => {
   });
 
   const [hoveredPathsSeen, setHoveredPathsSeen] = useState<Set<string>>(new Set());
+
+  const [showHiddenOverride, setShowHiddenOverride] = useState<boolean>(false);
+  const [showHiddenInTree, setShowHiddenInTree] = useState<boolean>(false);
 
   const setCwd = useCallback(
     (p: string) => {
@@ -127,7 +134,7 @@ const App: React.FC = () => {
         if (a.type !== b.type) return a.type === "dir" ? -1 : 1;
         return a.name.localeCompare(b.name);
       });
-    return { path: normalized, entries };
+    return { path: normalized, entries, showAll: false, long: false, human: false, blocks: false };
   };
 
   const handleShellSubmit = (e: React.FormEvent) => {
@@ -160,21 +167,66 @@ const App: React.FC = () => {
       }
     } else if (cmd === "ls") {
       let targetPath = cwd;
-      if (parts.length > 1) {
-        const raw = parts.slice(1).join(" ");
+      let showAll = false;
+      let longFormat = false;
+      let human = false;
+      let blocks = false;
+      let argStart = 1;
+      // Parse flags
+      for (let i = 1; i < parts.length; ++i) {
+        if (parts[i].startsWith("-") && parts[i].length > 1) {
+          for (let j = 1; j < parts[i].length; ++j) {
+            const part = parts[i][j];
+            if (part === "a") showAll = true;
+            else if (part === "l") longFormat = true;
+            else if (part === "h") human = true;
+            else if (part === "s") blocks = true;
+          }
+          argStart = i + 1;
+        } else {
+          break;
+        }
+      }
+      if (parts.length > argStart) {
+        const raw = parts.slice(argStart).join(" ");
         if (raw.startsWith("/")) targetPath = normalizePath(raw);
         else targetPath = normalizePath(joinPaths(cwd, raw));
       }
       if (!isDirectory(fileSystem, targetPath)) {
-        setError(`ls: cannot access '${parts.slice(1).join(" ")}': No such directory`);
+        setError(`ls: cannot access '${parts.slice(argStart).join(" ")}': No such directory`);
         setLsOutput(null);
         return;
       }
-      const out = listDirectory(targetPath);
-      if (out) {
-        setLsOutput(out);
+      // List directory and filter entries as per showAll
+      const node = findNodeByPath(fileSystem, targetPath);
+      if (!node || node.type !== "dir" || !node.children) {
+        setLsOutput({
+          path: targetPath,
+          entries: [],
+          showAll,
+          long: longFormat,
+          human,
+          blocks
+        });
         setInput("");
+        return;
       }
+      let entries = node.children
+        .filter((c) => showAll || !c.name.startsWith("."))
+        .map((c) => ({ name: c.name, type: c.type }))
+        .sort((a, b) => {
+          if (a.type !== b.type) return a.type === "dir" ? -1 : 1;
+          return a.name.localeCompare(b.name);
+        });
+      setLsOutput({
+        path: targetPath,
+        entries,
+        showAll,
+        long: longFormat,
+        human,
+        blocks
+      });
+      setInput("");
     } else {
       setError(`Unknown command: ${cmd}. Only 'cd' and 'ls' supported.`);
     }
@@ -330,6 +382,16 @@ const App: React.FC = () => {
 
       <div className="panel">
         <div className="left">
+          <div className="tree-controls" style={{ marginBottom: 8 }}>
+            <label>
+              <input
+                type="checkbox"
+                checked={showHiddenInTree}
+                onChange={(e) => setShowHiddenInTree(e.target.checked)}
+              />{" "}
+              Show hidden in tree
+            </label>
+          </div>
           <div className="tree-wrapper">
             <DirectoryTree
               root={fileSystem}
@@ -338,6 +400,7 @@ const App: React.FC = () => {
               setHoveredPath={setHovered}
               expanded={expanded}
               toggleExpand={toggleExpand}
+              showHidden={showHiddenInTree}
             />
           </div>
         </div>
@@ -424,14 +487,102 @@ const App: React.FC = () => {
                     <div className="muted">(empty)</div>
                   ) : (
                     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                      {lsOutput.entries.map((e) => (
-                        <div key={e.name}>
-                          <span aria-hidden="true" style={{ marginRight: 6 }}>
-                            {e.type === "dir" ? "📁" : "📄"}
-                          </span>
-                          {e.name}
-                        </div>
-                      ))}
+                      {lsOutput.long ? (
+                        (() => {
+                          // Simulate file sizes for block counts: 1 block (1024 bytes) per file, 2 blocks per dir
+                          const getNode = (name: string, type: string) => {
+                            const node = findNodeByPath(fileSystem, lsOutput.path + (lsOutput.path.endsWith("/") ? "" : "/") + name);
+                            return node;
+                          };
+                          const getSize = (node: FSNode | null) => {
+                            if (!node) return 0;
+                            if (node.type === "dir") return 2048;
+                            return 1024;
+                          };
+                          const getPerms = (node: FSNode | null) => {
+                            if (!node) return "----------";
+                            if (node.type === "dir") return "drwxr-xr-x";
+                            return "-rw-r--r--";
+                          };
+                          const totalBlocks = lsOutput.entries.reduce((acc, e) => {
+                            const node = getNode(e.name, e.type);
+                            const size = getSize(node);
+                            return acc + Math.ceil(size / 1024);
+                          }, 0);
+                          const humanReadableSize = (n: number) => {
+                            if (n < 1024) return `${n} B`;
+                            if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)}K`;
+                            return `${(n / (1024 * 1024)).toFixed(1)}M`;
+                          };
+                          return (
+                            <>
+                              {lsOutput.blocks && (
+                                <div>
+                                  total{" "}
+                                  {lsOutput.human
+                                    ? humanReadableSize(totalBlocks * 1024)
+                                    : totalBlocks}
+                                </div>
+                              )}
+                              {lsOutput.entries.map((e) => {
+                                const node = getNode(e.name, e.type);
+                                const size = getSize(node);
+                                const blockCount = Math.ceil(size / 1024);
+                                return (
+                                  <div key={e.name} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                    {lsOutput.blocks && (
+                                      <span style={{ minWidth: 36, textAlign: "right", color: "#888" }}>
+                                        {lsOutput.human
+                                          ? humanReadableSize(blockCount * 1024)
+                                          : blockCount}
+                                      </span>
+                                    )}
+                                    <span style={{ minWidth: 11, fontFamily: "monospace" }}>
+                                      {getPerms(node)}
+                                    </span>
+                                    <span aria-hidden="true" style={{ marginLeft: 6, marginRight: 6 }}>
+                                      {e.type === "dir" ? "📁" : "📄"}
+                                    </span>
+                                    {e.name}
+                                  </div>
+                                );
+                              })}
+                            </>
+                          );
+                        })()
+                      ) : (
+                        lsOutput.entries.map((e) => {
+                          // Short format
+                          // Simulate file sizes for block counts: 1 block (1024 bytes) per file, 2 blocks per dir
+                          const node = findNodeByPath(fileSystem, lsOutput.path + (lsOutput.path.endsWith("/") ? "" : "/") + e.name);
+                          const size = node
+                            ? node.type === "dir"
+                              ? 2048
+                              : 1024
+                            : 0;
+                          const blockCount = Math.ceil(size / 1024);
+                          const humanReadableSize = (n: number) => {
+                            if (n < 1024) return `${n} B`;
+                            if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)}K`;
+                            return `${(n / (1024 * 1024)).toFixed(1)}M`;
+                          };
+                          return (
+                            <div key={e.name} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              {lsOutput.blocks && (
+                                <span style={{ minWidth: 36, textAlign: "right", color: "#888" }}>
+                                  {lsOutput.human
+                                    ? humanReadableSize(blockCount * 1024)
+                                    : blockCount}
+                                </span>
+                              )}
+                              <span aria-hidden="true" style={{ marginRight: 6 }}>
+                                {e.type === "dir" ? "📁" : "📄"}
+                              </span>
+                              {e.name}
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
                   )}
                 </div>
