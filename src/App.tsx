@@ -247,10 +247,9 @@ const App: React.FC = () => {
     setLsOutput(null);
     const trimmed = input.trim();
     if (trimmed === "") return;
-    const parts = trimmed.split(" ").filter(Boolean);
-    const cmd = parts[0];
+
     // Helper to get file content by path (relative to cwd if not absolute)
-    const getFileContent = (raw: string): { path: string; content: string } | null => {
+    const getFileContentLocal = (raw: string): { path: string; content: string } | null => {
       let filePath: string;
       if (raw.startsWith("/")) filePath = normalizePath(raw);
       else filePath = normalizePath(joinPaths(cwd, raw));
@@ -258,13 +257,373 @@ const App: React.FC = () => {
       if (!node || node.type !== "file") return null;
       return { path: filePath, content: node.content || "" };
     };
-    if (cmd === "cd") {
-      if (parts.length === 1) {
+
+    // simple pipe support: split on '|', execute sequentially, passing previous text output as stdin
+    const stages = trimmed.split("|").map((s) => s.trim()).filter(Boolean);
+
+    const runSingle = (
+      raw: string,
+      stdin: string | null
+    ): { text: string | null; ls: LsOutput | null; error: string | null } => {
+      const parts = raw.split(" ").filter(Boolean);
+      const cmd = parts[0];
+      const result: { text: string | null; ls: LsOutput | null; error: string | null } = {
+        text: null,
+        ls: null,
+        error: null
+      };
+      // cd cannot be piped
+      if (cmd === "cd") {
+        result.error = "cd: cannot be piped";
+        return result;
+      }
+
+      if (cmd === "ls") {
+        let targetPath = cwd;
+        let showAll = false;
+        let longFormat = false;
+        let human = false;
+        let blocks = false;
+        let argStart = 1;
+        for (let i = 1; i < parts.length; ++i) {
+          if (parts[i].startsWith("-") && parts[i].length > 1) {
+            for (let j = 1; j < parts[i].length; ++j) {
+              const part = parts[i][j];
+              if (part === "a") showAll = true;
+              else if (part === "l") longFormat = true;
+              else if (part === "h") human = true;
+              else if (part === "s") blocks = true;
+            }
+            argStart = i + 1;
+          } else {
+            break;
+          }
+        }
+        if (parts.length > argStart) {
+          const rawT = parts.slice(argStart).join(" ");
+          if (rawT.startsWith("/")) targetPath = normalizePath(rawT);
+          else targetPath = normalizePath(joinPaths(cwd, rawT));
+        }
+        if (!isDirectory(fileSystem, targetPath)) {
+          result.error = `ls: cannot access '${parts.slice(argStart).join(" ")}': No such directory`;
+          return result;
+        }
+        const node = findNodeByPath(fileSystem, targetPath);
+        if (!node || node.type !== "dir" || !node.children) {
+          result.ls = { path: targetPath, entries: [], showAll, long: longFormat, human, blocks };
+          result.text = "";
+          return result;
+        }
+        let entries = node.children
+          .filter((c) => showAll || showHiddenOverride || !c.name.startsWith("."))
+          .map((c) => ({ name: c.name, type: c.type }))
+          .sort((a, b) => {
+            if (a.type !== b.type) return a.type === "dir" ? -1 : 1;
+            return a.name.localeCompare(b.name);
+          });
+        result.ls = { path: targetPath, entries, showAll, long: longFormat, human, blocks };
+        result.text = entries.map((e) => (e.type === "dir" ? e.name + "/" : e.name)).join("\n");
+        return result;
+      } else if (cmd === "cat") {
+        if (parts.length >= 2) {
+          const outputs: string[] = [];
+          for (const raw of parts.slice(1)) {
+            const file = getFileContentLocal(raw);
+            if (!file) {
+              result.error = `cat: ${raw}: No such file`;
+              continue;
+            }
+            if (parts.slice(1).length > 1) {
+              outputs.push(`==> ${file.path} <==`);
+            }
+            outputs.push(file.content);
+          }
+          result.text = outputs.join("\n");
+          return result;
+        } else if (stdin !== null) {
+          result.text = stdin;
+          return result;
+        } else {
+          result.error = "cat: missing operand";
+          return result;
+        }
+      } else if (cmd === "head" || cmd === "tail") {
+        let num = 10;
+        let idx = 1;
+        if (parts[1] === "-n" && parts.length >= 3) {
+          const parsed = parseInt(parts[2], 10);
+          if (!isNaN(parsed)) num = parsed;
+          idx = 3;
+        } else if (/^-\d+$/.test(parts[1])) {
+          const parsed = parseInt(parts[1].slice(1), 10);
+          if (!isNaN(parsed)) num = parsed;
+          idx = 2;
+        }
+        let contentSource: string | null = null;
+        if (parts.length > idx) {
+          const raw = parts.slice(idx).join(" ");
+          const file = getFileContentLocal(raw);
+          if (!file) {
+            result.error = `${cmd}: ${raw}: No such file`;
+            return result;
+          }
+          contentSource = file.content;
+        } else if (stdin !== null) {
+          contentSource = stdin;
+        } else {
+          result.error = `${cmd}: missing operand`;
+          return result;
+        }
+        const lines = contentSource.split("\n");
+        let selected: string[];
+        if (cmd === "head") selected = lines.slice(0, num);
+        else selected = lines.slice(-num);
+        result.text = selected.join("\n");
+        return result;
+      } else if (cmd === "wc") {
+        const flags = { l: false, w: false, c: false };
+        let idx = 1;
+        while (parts[idx]?.startsWith("-") && parts[idx].length > 1) {
+          for (let j = 1; j < parts[idx].length; ++j) {
+            const ch = parts[idx][j];
+            if (ch === "l") flags.l = true;
+            if (ch === "w") flags.w = true;
+            if (ch === "c") flags.c = true;
+          }
+          idx++;
+        }
+        const files = parts.slice(idx);
+        const linesTotals = { lines: 0, words: 0, bytes: 0 };
+        const perFileOutputs: string[] = [];
+        const processContent = (content: string, name: string) => {
+          const lines = content.split("\n").length;
+          const words = content.trim() === "" ? 0 : content.trim().split(/\s+/).length;
+          const bytes = new TextEncoder().encode(content).length;
+          linesTotals.lines += lines;
+          linesTotals.words += words;
+          linesTotals.bytes += bytes;
+          let partsOut: string[] = [];
+          if (!flags.l && !flags.w && !flags.c) {
+            partsOut = [String(lines), String(words), String(bytes)];
+          } else {
+            if (flags.l) partsOut.push(String(lines));
+            if (flags.w) partsOut.push(String(words));
+            if (flags.c) partsOut.push(String(bytes));
+          }
+          partsOut.push(name);
+          perFileOutputs.push(partsOut.join(" "));
+        };
+        if (files.length === 0) {
+          if (stdin !== null) {
+            processContent(stdin, "-");
+          } else {
+            result.error = "wc: missing file operand";
+            return result;
+          }
+        } else {
+          for (const raw of files) {
+            const file = getFileContentLocal(raw);
+            if (!file) {
+              result.error = `wc: ${raw}: No such file`;
+              continue;
+            }
+            processContent(file.content, file.path);
+          }
+        }
+        if (files.length > 1) {
+          let totalParts: string[] = [];
+          if (!flags.l && !flags.w && !flags.c) {
+            totalParts = [String(linesTotals.lines), String(linesTotals.words), String(linesTotals.bytes), "total"];
+          } else {
+            if (flags.l) totalParts.push(String(linesTotals.lines));
+            if (flags.w) totalParts.push(String(linesTotals.words));
+            if (flags.c) totalParts.push(String(linesTotals.bytes));
+            totalParts.push("total");
+          }
+          perFileOutputs.push(totalParts.join(" "));
+        }
+        result.text = perFileOutputs.join("\n");
+        return result;
+      } else if (cmd === "grep") {
+        let ignoreCase = false;
+        let idxGrep = 1;
+        while (parts[idxGrep]?.startsWith("-") && parts[idxGrep].length > 1) {
+          if (parts[idxGrep].includes("i")) ignoreCase = true;
+          idxGrep++;
+        }
+        const pattern = parts[idxGrep];
+        if (!pattern) {
+          result.error = "grep: missing pattern";
+          return result;
+        }
+        idxGrep++;
+        const filesGrep = parts.slice(idxGrep);
+        const outLinesGrep: string[] = [];
+        let regex: RegExp | null = null;
+        try {
+          regex = new RegExp(pattern, ignoreCase ? "i" : "");
+        } catch (e) {
+          regex = null;
+        }
+        if (filesGrep.length === 0) {
+          if (stdin !== null) {
+            const lines = stdin.split("\n");
+            for (const line of lines) {
+              let match = false;
+              if (regex) {
+                match = regex.test(line);
+              } else {
+                if (ignoreCase) match = line.toLowerCase().includes(pattern.toLowerCase());
+                else match = line.includes(pattern);
+              }
+              if (match) outLinesGrep.push(line);
+            }
+          } else {
+            result.error = "grep: missing file";
+            return result;
+          }
+        } else {
+          for (const raw of filesGrep) {
+            const file = getFileContentLocal(raw);
+            if (!file) {
+              result.error = `grep: ${raw}: No such file`;
+              continue;
+            }
+            const lines = file.content.split("\n");
+            for (const line of lines) {
+              let match = false;
+              if (regex) {
+                match = regex.test(line);
+              } else {
+                if (ignoreCase) match = line.toLowerCase().includes(pattern.toLowerCase());
+                else match = line.includes(pattern);
+              }
+              if (match) {
+                if (filesGrep.length > 1) outLinesGrep.push(`${file.path}:${line}`);
+                else outLinesGrep.push(line);
+              }
+            }
+          }
+        }
+        result.text = outLinesGrep.join("\n");
+        return result;
+      } else if (cmd === "cut") {
+        if (parts.length < 2) {
+          result.error = "cut: missing operand";
+          return result;
+        }
+        let fieldsArg: string | null = null;
+        let delim = "\t";
+        let idxCut = 1;
+        while (idxCut < parts.length) {
+          const p = parts[idxCut];
+          if (p.startsWith("-f")) {
+            if (p === "-f") {
+              idxCut++;
+              fieldsArg = parts[idxCut] || null;
+            } else {
+              fieldsArg = p.slice(2);
+            }
+            idxCut++;
+          } else if (p.startsWith("-d")) {
+            if (p === "-d") {
+              idxCut++;
+              delim = parts[idxCut] || "\t";
+            } else {
+              delim = p.slice(2);
+            }
+            idxCut++;
+          } else {
+            break;
+          }
+        }
+        if (!fieldsArg) {
+          result.error = "cut: missing -f option";
+          return result;
+        }
+        const filesCut = parts.slice(idxCut);
+        const delimChar = delim === "\\t" ? "\t" : delim;
+        const fieldNums = fieldsArg
+          .split(",")
+          .map((f) => parseInt(f, 10))
+          .filter((n) => !isNaN(n) && n > 0);
+        if (fieldNums.length === 0) {
+          result.error = "cut: invalid field list";
+          return result;
+        }
+        const outLinesCut: string[] = [];
+        if (filesCut.length === 0) {
+          if (stdin !== null) {
+            const lines = stdin.split("\n");
+            for (const line of lines) {
+              const cols = line.split(delimChar);
+              const selected = fieldNums.map((n) => (n - 1 < cols.length ? cols[n - 1] : ""));
+              outLinesCut.push(selected.join(delimChar));
+            }
+          } else {
+            result.error = "cut: missing file";
+            return result;
+          }
+        } else {
+          for (const raw of filesCut) {
+            const file = getFileContentLocal(raw);
+            if (!file) {
+              result.error = `cut: ${raw}: No such file`;
+              continue;
+            }
+            const lines = file.content.split("\n");
+            if (filesCut.length > 1) {
+              outLinesCut.push(`==> ${file.path} <==`);
+            }
+            for (const line of lines) {
+              const cols = line.split(delimChar);
+              const selected = fieldNums.map((n) => (n - 1 < cols.length ? cols[n - 1] : ""));
+              outLinesCut.push(selected.join(delimChar));
+            }
+          }
+        }
+        result.text = outLinesCut.join("\n");
+        return result;
+      } else {
+        result.error = `Unknown command: ${cmd}. Supported: cd, ls, cat, head, tail, wc, grep, cut.`;
+        return result;
+      }
+    };
+
+    if (stages.length > 1) {
+      let currentText: string | null = null;
+      let lastLs: LsOutput | null = null;
+      for (const stage of stages) {
+        const out = runSingle(stage, currentText);
+        if (out.error) {
+          setError(out.error);
+          return;
+        }
+        if (out.ls) lastLs = out.ls;
+        if (out.text !== null) {
+          currentText = out.text;
+        } else if (out.ls) {
+          currentText = out.ls.entries
+            .map((e) => (e.type === "dir" ? e.name + "/" : e.name))
+            .join("\n");
+        }
+      }
+      if (lastLs) setLsOutput(lastLs);
+      if (currentText !== null) setTextOutput(currentText);
+      setInput("");
+      return;
+    }
+
+    // no pipe: single command fallback
+    const singleParts = trimmed.split(" ").filter(Boolean);
+    const singleCmd = singleParts[0];
+    if (singleCmd === "cd") {
+      if (singleParts.length === 1) {
         setCwd(HOME);
         setInput("");
         return;
       }
-      const targetRaw = parts.slice(1).join(" ");
+      const targetRaw = singleParts.slice(1).join(" ");
       let target: string;
       if (targetRaw.startsWith("/")) {
         target = normalizePath(targetRaw);
@@ -277,302 +636,16 @@ const App: React.FC = () => {
       } else {
         setError(`cd: not a directory: ${targetRaw}`);
       }
-    } else if (cmd === "ls") {
-      let targetPath = cwd;
-      let showAll = false;
-      let longFormat = false;
-      let human = false;
-      let blocks = false;
-      let argStart = 1;
-      for (let i = 1; i < parts.length; ++i) {
-        if (parts[i].startsWith("-") && parts[i].length > 1) {
-          for (let j = 1; j < parts[i].length; ++j) {
-            const part = parts[i][j];
-            if (part === "a") showAll = true;
-            else if (part === "l") longFormat = true;
-            else if (part === "h") human = true;
-            else if (part === "s") blocks = true;
-          }
-          argStart = i + 1;
-        } else {
-          break;
-        }
-      }
-      if (parts.length > argStart) {
-        const raw = parts.slice(argStart).join(" ");
-        if (raw.startsWith("/")) targetPath = normalizePath(raw);
-        else targetPath = normalizePath(joinPaths(cwd, raw));
-      }
-      if (!isDirectory(fileSystem, targetPath)) {
-        setError(`ls: cannot access '${parts.slice(argStart).join(" ")}': No such directory`);
-        setLsOutput(null);
-        setInput("");
-        return;
-      }
-      const node = findNodeByPath(fileSystem, targetPath);
-      if (!node || node.type !== "dir" || !node.children) {
-        setLsOutput({ path: targetPath, entries: [], showAll, long: longFormat, human, blocks });
-        setInput("");
-        return;
-      }
-      let entries = node.children
-        .filter((c) => showAll || showHiddenOverride || !c.name.startsWith("."))
-        .map((c) => ({ name: c.name, type: c.type }))
-        .sort((a, b) => {
-          if (a.type !== b.type) return a.type === "dir" ? -1 : 1;
-          return a.name.localeCompare(b.name);
-        });
-      setLsOutput({ path: targetPath, entries, showAll, long: longFormat, human, blocks });
-      setInput("");
-    } else if (cmd === "cat") {
-      if (parts.length < 2) {
-        setError("cat: missing operand");
-        return;
-      }
-      const outputs: string[] = [];
-      for (const raw of parts.slice(1)) {
-        const file = getFileContent(raw);
-        if (!file) {
-          setError(`cat: ${raw}: No such file`);
-          continue;
-        }
-        if (parts.length > 2) {
-          outputs.push(`==> ${file.path} <==`);
-        }
-        outputs.push(file.content);
-      }
-      setTextOutput(outputs.join("\n"));
-      setInput("");
-    } else if (cmd === "head" || cmd === "tail") {
-      if (parts.length < 2) {
-        setError(`${cmd}: missing operand`);
-        return;
-      }
-      let num = 10;
-      let idx = 1;
-      if (parts[1] === "-n" && parts.length >= 3) {
-        const parsed = parseInt(parts[2], 10);
-        if (!isNaN(parsed)) num = parsed;
-        idx = 3;
-      } else if (/^-\d+$/.test(parts[1])) {
-        const parsed = parseInt(parts[1].slice(1), 10);
-        if (!isNaN(parsed)) num = parsed;
-        idx = 2;
-      }
-      if (parts.length <= idx) {
-        setError(`${cmd}: missing file operand`);
-        return;
-      }
-      const outputs: string[] = [];
-      for (const raw of parts.slice(idx)) {
-        const file = getFileContent(raw);
-        if (!file) {
-          setError(`${cmd}: ${raw}: No such file`);
-          continue;
-        }
-        const lines = file.content.split("\n");
-        let selected: string[];
-        if (cmd === "head") {
-          selected = lines.slice(0, num);
-        } else {
-          selected = lines.slice(-num);
-        }
-        if (parts.slice(idx).length > 1) {
-          outputs.push(`==> ${file.path} <==`);
-        }
-        outputs.push(selected.join("\n"));
-      }
-      setTextOutput(outputs.join("\n"));
-      setInput("");
-    } else if (cmd === "wc") {
-      if (parts.length < 2) {
-        setError("wc: missing operand");
-        return;
-      }
-      const flags = { l: false, w: false, c: false };
-      let idx = 1;
-      while (parts[idx]?.startsWith("-") && parts[idx].length > 1) {
-        for (let j = 1; j < parts[idx].length; ++j) {
-          const ch = parts[idx][j];
-          if (ch === "l") flags.l = true;
-          if (ch === "w") flags.w = true;
-          if (ch === "c") flags.c = true;
-        }
-        idx++;
-      }
-      const files = parts.slice(idx);
-      if (files.length === 0) {
-        setError("wc: missing file operand");
-        return;
-      }
-      const linesTotals = { lines: 0, words: 0, bytes: 0 };
-      const perFileOutputs: string[] = [];
-      for (const raw of files) {
-        const file = getFileContent(raw);
-        if (!file) {
-          setError(`wc: ${raw}: No such file`);
-          continue;
-        }
-        const content = file.content;
-        const lines = content.split("\n").length;
-        const words = content.trim() === "" ? 0 : content.trim().split(/\s+/).length;
-        const bytes = new TextEncoder().encode(content).length;
-        linesTotals.lines += lines;
-        linesTotals.words += words;
-        linesTotals.bytes += bytes;
-        let partsOut: string[] = [];
-        if (!flags.l && !flags.w && !flags.c) {
-          partsOut = [String(lines), String(words), String(bytes)];
-        } else {
-          if (flags.l) partsOut.push(String(lines));
-          if (flags.w) partsOut.push(String(words));
-          if (flags.c) partsOut.push(String(bytes));
-        }
-        partsOut.push(file.path);
-        perFileOutputs.push(partsOut.join(" "));
-      }
-      if (files.length > 1) {
-        let totalParts: string[] = [];
-        if (!flags.l && !flags.w && !flags.c) {
-          totalParts = [String(linesTotals.lines), String(linesTotals.words), String(linesTotals.bytes), "total"];
-        } else {
-          if (flags.l) totalParts.push(String(linesTotals.lines));
-          if (flags.w) totalParts.push(String(linesTotals.words));
-          if (flags.c) totalParts.push(String(linesTotals.bytes));
-          totalParts.push("total");
-        }
-        perFileOutputs.push(totalParts.join(" "));
-      }
-      setTextOutput(perFileOutputs.join("\n"));
-      setInput("");
-    } else if (cmd === "grep") {
-      if (parts.length < 3) {
-        setError("grep: missing operand");
-        return;
-      }
-      let ignoreCase = false;
-      let idxGrep = 1;
-      while (parts[idxGrep]?.startsWith("-") && parts[idxGrep].length > 1) {
-        if (parts[idxGrep].includes("i")) ignoreCase = true;
-        idxGrep++;
-      }
-      const pattern = parts[idxGrep];
-      if (!pattern) {
-        setError("grep: missing pattern");
-        return;
-      }
-      idxGrep++;
-      const filesGrep = parts.slice(idxGrep);
-      if (filesGrep.length === 0) {
-        setError("grep: missing file");
-        return;
-      }
-      const outLinesGrep: string[] = [];
-      let regex: RegExp | null = null;
-      try {
-        regex = new RegExp(pattern, ignoreCase ? "i" : "");
-      } catch (e) {
-        regex = null;
-      }
-      for (const raw of filesGrep) {
-        const file = getFileContent(raw);
-        if (!file) {
-          setError(`grep: ${raw}: No such file`);
-          continue;
-        }
-        const lines = file.content.split("\n");
-        for (const line of lines) {
-          let match = false;
-          if (regex) {
-            match = regex.test(line);
-          } else {
-            if (ignoreCase) {
-              match = line.toLowerCase().includes(pattern.toLowerCase());
-            } else {
-              match = line.includes(pattern);
-            }
-          }
-          if (match) {
-            if (filesGrep.length > 1) {
-              outLinesGrep.push(`${file.path}:${line}`);
-            } else {
-              outLinesGrep.push(line);
-            }
-          }
-        }
-      }
-      setTextOutput(outLinesGrep.join("\n"));
-      setInput("");
-    } else if (cmd === "cut") {
-      if (parts.length < 2) {
-        setError("cut: missing operand");
-        return;
-      }
-      let fieldsArg: string | null = null;
-      let delim = "\t";
-      let idxCut = 1;
-      while (idxCut < parts.length) {
-        const p = parts[idxCut];
-        if (p.startsWith("-f")) {
-          if (p === "-f") {
-            idxCut++;
-            fieldsArg = parts[idxCut] || null;
-          } else {
-            fieldsArg = p.slice(2);
-          }
-          idxCut++;
-        } else if (p.startsWith("-d")) {
-          if (p === "-d") {
-            idxCut++;
-            delim = parts[idxCut] || "\t";
-          } else {
-            delim = p.slice(2);
-          }
-          idxCut++;
-        } else {
-          break;
-        }
-      }
-      if (!fieldsArg) {
-        setError("cut: missing -f option");
-        return;
-      }
-      const filesCut = parts.slice(idxCut);
-      if (filesCut.length === 0) {
-        setError("cut: missing file");
-        return;
-      }
-      const delimChar = delim === "\\t" ? "\t" : delim;
-      const fieldNums = fieldsArg
-        .split(",")
-        .map((f) => parseInt(f, 10))
-        .filter((n) => !isNaN(n) && n > 0);
-      if (fieldNums.length === 0) {
-        setError("cut: invalid field list");
-        return;
-      }
-      const outLinesCut: string[] = [];
-      for (const raw of filesCut) {
-        const file = getFileContent(raw);
-        if (!file) {
-          setError(`cut: ${raw}: No such file`);
-          continue;
-        }
-        const lines = file.content.split("\n");
-        if (filesCut.length > 1) {
-          outLinesCut.push(`==> ${file.path} <==`);
-        }
-        for (const line of lines) {
-          const cols = line.split(delimChar);
-          const selected = fieldNums.map((n) => (n - 1 < cols.length ? cols[n - 1] : ""));
-          outLinesCut.push(selected.join(delimChar));
-        }
-      }
-      setTextOutput(outLinesCut.join("\n"));
-      setInput("");
-    } else {
-      setError(`Unknown command: ${cmd}. Supported: cd, ls, cat, head, tail, wc, grep, cut.`);
+      return;
     }
+    const out = runSingle(trimmed, null);
+    if (out.error) {
+      setError(out.error);
+      return;
+    }
+    if (out.ls) setLsOutput(out.ls);
+    if (out.text !== null) setTextOutput(out.text);
+    setInput("");
   };
 
   useEffect(() => {
