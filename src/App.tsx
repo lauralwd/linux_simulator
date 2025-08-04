@@ -209,6 +209,7 @@ const App: React.FC = () => {
     } catch {}
     return new Set();
   });
+  const [lastCommand, setLastCommand] = useState<string | null>(null);
 
   const setCwd = useCallback(
     (p: string) => {
@@ -339,6 +340,7 @@ const App: React.FC = () => {
     setTextOutput(null);
     setLsOutput(null);
     const trimmed = input.trim();
+    setLastCommand(trimmed);
     if (trimmed === "") return;
 
     // Helper to get file content by path (relative to cwd if not absolute)
@@ -907,7 +909,17 @@ const App: React.FC = () => {
     { id: "thesis-sizes", description: "List items in Thesis directory with human-readable sizes and block counts using ls -lhs", isComplete: () => lsOutput?.path === "/home/user/Documents/Thesis" && lsOutput?.long && lsOutput?.human && lsOutput?.blocks },
     { id: "extract-treated-sample-ids", description: "From sample metadata, extract sample IDs of treated samples", isComplete: () => textOutput?.includes("s2") && textOutput?.includes("s4") },
     { id: "sample-id-condition", description: "Extract sample IDs and conditions from sample metadata", isComplete: () => (textOutput?.includes("sample_id") && textOutput?.includes("control")) ?? false },
-    { id: "search-filesystem", description: "Search for the word 'filesystem' in README.txt", isComplete: () => (textOutput?.toLowerCase().includes("filesystem") ?? false) },
+    { id: "search-filesystem", description: "Search for the word 'filesystem' in README.txt", isComplete: () => {
+        if (!textOutput) return false;
+        if (!lastCommand) return false;
+        const out = textOutput.toLowerCase();
+        if (!out.includes("filesystem")) return false;
+        const cmd = lastCommand.toLowerCase();
+        if (!cmd.includes("grep")) return false;
+        if (!cmd.includes("filesystem")) return false;
+        if (!cmd.includes("readme")) return false;
+        return true;
+    } },
     { id: "find-index-in-webapp", description: "List contents of webapp project and filter for 'index'", isComplete: () => textOutput?.includes("index.html") ?? false },
     { id: "show-grocery", description: "Display the grocery list", isComplete: () => textOutput?.includes("Milk") ?? false },
     { id: "count-expenses", description: "Count number of expense entries (excluding header) in expenses.csv", isComplete: () => { const t = textOutput?.trim(); if (!t) return false; return t.split(/\s+/)[0] === "4"; } },
@@ -922,7 +934,7 @@ const App: React.FC = () => {
       });
       return copy;
     });
-  }, [cwd, lsOutput, textOutput]);
+  }, [cwd, lsOutput, textOutput, lastCommand]);
 
   useEffect(() => {
     localStorage.setItem("completedMissions", JSON.stringify(Array.from(completedMissions)));
