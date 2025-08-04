@@ -2,6 +2,7 @@ export type FSNode = {
   name: string;
   type: "dir" | "file";
   children?: FSNode[]; // only for dirs
+  content?: string;
 };
 
 // Simulated filesystem
@@ -88,8 +89,18 @@ export const fileSystem: FSNode = {
                   name: "Thesis",
                   type: "dir",
                   children: [
-                    { name: "chapter1.md", type: "file" },
-                    { name: "chapter2.md", type: "file" }
+                    { name: "chapter1.md", type: "file", content: `# Chapter 1: Introduction
+
+This is the introduction to the thesis. It explains the problem and motivation.
+
+- Point one
+- Point two` },
+                    { name: "chapter2.md", type: "file", content: `# Chapter 2: Methods
+
+This section describes the methods used in the study.
+
+1. Data collection
+2. Analysis` }
                   ]
                 },
                 {
@@ -101,8 +112,17 @@ export const fileSystem: FSNode = {
                   name: "Research",
                   type: "dir",
                   children: [
-                    { name: "example.fasta", type: "file" },
-                    { name: "variants.vcf", type: "file" }
+                    { name: "example.fasta", type: "file", content: `>seq1
+ATGCGTACGTAGCTAGCTAGCTAGCTAGCTAGC
+>seq2
+GCTAGCTAGCTGACTGACTGACGATCGATCGTA
+>seq3
+TTGACGATCGATCGATCGATCGATCGATCGTAGCTA` },
+                    { name: "variants.vcf", type: "file", content: `##fileformat=VCFv4.2
+##source=simulated
+#CHROM  POS     ID      REF     ALT     QUAL    FILTER  INFO
+chr1    123456  .       A       G       60      PASS    DP=100
+chr2    234567  rs555   T       C       50      PASS    DP=80` }
                   ]
                 }
               ]
@@ -115,8 +135,21 @@ export const fileSystem: FSNode = {
                   name: "webapp",
                   type: "dir",
                   children: [
-                    { name: "index.html", type: "file" },
-                    { name: "app.tsx", type: "file" }
+                    { name: "index.html", type: "file", content: `<!doctype html>
+<html>
+<head><title>Example Webapp</title></head>
+<body>
+  <h1>Welcome to the Webapp</h1>
+  <div id="root"></div>
+</body>
+</html>` },
+                    { name: "app.tsx", type: "file", content: `import React from 'react';
+import ReactDOM from 'react-dom/client';
+
+const App = () => <div>Hello from Webapp!</div>;
+
+const root = ReactDOM.createRoot(document.getElementById('root')!);
+root.render(<App />);` }
                   ]
                 },
                 {
@@ -148,7 +181,7 @@ export const fileSystem: FSNode = {
             },
             { name: ".bashrc", type: "file" },
             { name: ".profile", type: "file" },
-            { name: "README.txt", type: "file" }
+            { name: "README.txt", type: "file", content: `This is the user README for the filesystem visualizer. Use commands like ls, cd, cat, head, tail, wc, and grep to explore.` }
           ]
         },
         {

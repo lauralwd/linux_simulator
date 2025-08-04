@@ -3,7 +3,7 @@ import { fileSystem, FSNode } from "./fs";
 import { DirectoryTree } from "./components/DirectoryTree";
 import { normalizePath, joinPaths, relativePath } from "./utils/path";
 
-const HOME = "/home/Laura";
+const HOME = "/home/user";
 
 const findNodeByPath = (root: FSNode, path: string): FSNode | null => {
   const normalized = normalizePath(path);
@@ -41,8 +41,9 @@ const App: React.FC = () => {
     return localStorage.getItem("theme") === "dark";
   });
   const [lsOutput, setLsOutput] = useState<LsOutput | null>(null);
+  const [textOutput, setTextOutput] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(() => {
-    return new Set([normalizePath("/"), normalizePath("/home"), normalizePath("/home/Laura")]);
+    return new Set([normalizePath("/"), normalizePath("/home"), normalizePath("/home/user")]);
   });
 
   const [hoveredPathsSeen, setHoveredPathsSeen] = useState<Set<string>>(new Set());
@@ -71,6 +72,10 @@ const App: React.FC = () => {
       else copy.add(norm);
       return copy;
     });
+  };
+
+  const collapseAll = () => {
+    setExpanded(new Set([normalizePath("/")]));
   };
 
   // Arrow-key navigation
@@ -140,14 +145,24 @@ const App: React.FC = () => {
   const handleShellSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setTextOutput(null);
+    setLsOutput(null);
     const trimmed = input.trim();
     if (trimmed === "") return;
     const parts = trimmed.split(" ").filter(Boolean);
     const cmd = parts[0];
+    // Helper to get file content by path (relative to cwd if not absolute)
+    const getFileContent = (raw: string): { path: string; content: string } | null => {
+      let filePath: string;
+      if (raw.startsWith("/")) filePath = normalizePath(raw);
+      else filePath = normalizePath(joinPaths(cwd, raw));
+      const node = findNodeByPath(fileSystem, filePath);
+      if (!node || node.type !== "file") return null;
+      return { path: filePath, content: node.content || "" };
+    };
     if (cmd === "cd") {
       if (parts.length === 1) {
         setCwd(HOME);
-        setLsOutput(null);
         setInput("");
         return;
       }
@@ -160,7 +175,6 @@ const App: React.FC = () => {
       }
       if (isDirectory(fileSystem, target)) {
         setCwd(target);
-        setLsOutput(null);
         setInput("");
       } else {
         setError(`cd: not a directory: ${targetRaw}`);
@@ -172,7 +186,6 @@ const App: React.FC = () => {
       let human = false;
       let blocks = false;
       let argStart = 1;
-      // Parse flags
       for (let i = 1; i < parts.length; ++i) {
         if (parts[i].startsWith("-") && parts[i].length > 1) {
           for (let j = 1; j < parts[i].length; ++j) {
@@ -195,40 +208,205 @@ const App: React.FC = () => {
       if (!isDirectory(fileSystem, targetPath)) {
         setError(`ls: cannot access '${parts.slice(argStart).join(" ")}': No such directory`);
         setLsOutput(null);
+        setInput("");
         return;
       }
-      // List directory and filter entries as per showAll
       const node = findNodeByPath(fileSystem, targetPath);
       if (!node || node.type !== "dir" || !node.children) {
-        setLsOutput({
-          path: targetPath,
-          entries: [],
-          showAll,
-          long: longFormat,
-          human,
-          blocks
-        });
+        setLsOutput({ path: targetPath, entries: [], showAll, long: longFormat, human, blocks });
         setInput("");
         return;
       }
       let entries = node.children
-        .filter((c) => showAll || !c.name.startsWith("."))
+        .filter((c) => showAll || showHiddenOverride || !c.name.startsWith("."))
         .map((c) => ({ name: c.name, type: c.type }))
         .sort((a, b) => {
           if (a.type !== b.type) return a.type === "dir" ? -1 : 1;
           return a.name.localeCompare(b.name);
         });
-      setLsOutput({
-        path: targetPath,
-        entries,
-        showAll,
-        long: longFormat,
-        human,
-        blocks
-      });
+      setLsOutput({ path: targetPath, entries, showAll, long: longFormat, human, blocks });
+      setInput("");
+    } else if (cmd === "cat") {
+      if (parts.length < 2) {
+        setError("cat: missing operand");
+        return;
+      }
+      const outputs: string[] = [];
+      for (const raw of parts.slice(1)) {
+        const file = getFileContent(raw);
+        if (!file) {
+          setError(`cat: ${raw}: No such file`);
+          continue;
+        }
+        if (parts.length > 2) {
+          outputs.push(`==> ${file.path} <==`);
+        }
+        outputs.push(file.content);
+      }
+      setTextOutput(outputs.join("\n"));
+      setInput("");
+    } else if (cmd === "head" || cmd === "tail") {
+      if (parts.length < 2) {
+        setError(`${cmd}: missing operand`);
+        return;
+      }
+      let num = 10;
+      let idx = 1;
+      if (parts[1] === "-n" && parts.length >= 3) {
+        const parsed = parseInt(parts[2], 10);
+        if (!isNaN(parsed)) num = parsed;
+        idx = 3;
+      } else if (/^-\d+$/.test(parts[1])) {
+        const parsed = parseInt(parts[1].slice(1), 10);
+        if (!isNaN(parsed)) num = parsed;
+        idx = 2;
+      }
+      if (parts.length <= idx) {
+        setError(`${cmd}: missing file operand`);
+        return;
+      }
+      const outputs: string[] = [];
+      for (const raw of parts.slice(idx)) {
+        const file = getFileContent(raw);
+        if (!file) {
+          setError(`${cmd}: ${raw}: No such file`);
+          continue;
+        }
+        const lines = file.content.split("\n");
+        let selected: string[];
+        if (cmd === "head") {
+          selected = lines.slice(0, num);
+        } else {
+          selected = lines.slice(-num);
+        }
+        if (parts.slice(idx).length > 1) {
+          outputs.push(`==> ${file.path} <==`);
+        }
+        outputs.push(selected.join("\n"));
+      }
+      setTextOutput(outputs.join("\n"));
+      setInput("");
+    } else if (cmd === "wc") {
+      if (parts.length < 2) {
+        setError("wc: missing operand");
+        return;
+      }
+      const flags = { l: false, w: false, c: false };
+      let idx = 1;
+      while (parts[idx]?.startsWith("-") && parts[idx].length > 1) {
+        for (let j = 1; j < parts[idx].length; ++j) {
+          const ch = parts[idx][j];
+          if (ch === "l") flags.l = true;
+          if (ch === "w") flags.w = true;
+          if (ch === "c") flags.c = true;
+        }
+        idx++;
+      }
+      const files = parts.slice(idx);
+      if (files.length === 0) {
+        setError("wc: missing file operand");
+        return;
+      }
+      const linesTotals = { lines: 0, words: 0, bytes: 0 };
+      const perFileOutputs: string[] = [];
+      for (const raw of files) {
+        const file = getFileContent(raw);
+        if (!file) {
+          setError(`wc: ${raw}: No such file`);
+          continue;
+        }
+        const content = file.content;
+        const lines = content.split("\n").length;
+        const words = content.trim() === "" ? 0 : content.trim().split(/\s+/).length;
+        const bytes = new TextEncoder().encode(content).length;
+        linesTotals.lines += lines;
+        linesTotals.words += words;
+        linesTotals.bytes += bytes;
+        let partsOut: string[] = [];
+        if (!flags.l && !flags.w && !flags.c) {
+          partsOut = [String(lines), String(words), String(bytes)];
+        } else {
+          if (flags.l) partsOut.push(String(lines));
+          if (flags.w) partsOut.push(String(words));
+          if (flags.c) partsOut.push(String(bytes));
+        }
+        partsOut.push(file.path);
+        perFileOutputs.push(partsOut.join(" "));
+      }
+      if (files.length > 1) {
+        let totalParts: string[] = [];
+        if (!flags.l && !flags.w && !flags.c) {
+          totalParts = [String(linesTotals.lines), String(linesTotals.words), String(linesTotals.bytes), "total"];
+        } else {
+          if (flags.l) totalParts.push(String(linesTotals.lines));
+          if (flags.w) totalParts.push(String(linesTotals.words));
+          if (flags.c) totalParts.push(String(linesTotals.bytes));
+          totalParts.push("total");
+        }
+        perFileOutputs.push(totalParts.join(" "));
+      }
+      setTextOutput(perFileOutputs.join("\n"));
+      setInput("");
+    } else if (cmd === "grep") {
+      if (parts.length < 3) {
+        setError("grep: missing operand");
+        return;
+      }
+      let ignoreCase = false;
+      let idx = 1;
+      while (parts[idx]?.startsWith("-") && parts[idx].length > 1) {
+        if (parts[idx].includes("i")) ignoreCase = true;
+        idx++;
+      }
+      const pattern = parts[idx];
+      if (!pattern) {
+        setError("grep: missing pattern");
+        return;
+      }
+      idx++;
+      const files = parts.slice(idx);
+      if (files.length === 0) {
+        setError("grep: missing file");
+        return;
+      }
+      const outLines: string[] = [];
+      let regex: RegExp | null = null;
+      try {
+        regex = new RegExp(pattern, ignoreCase ? "i" : "");
+      } catch (e) {
+        regex = null;
+      }
+      for (const raw of files) {
+        const file = getFileContent(raw);
+        if (!file) {
+          setError(`grep: ${raw}: No such file`);
+          continue;
+        }
+        const lines = file.content.split("\n");
+        for (const line of lines) {
+          let match = false;
+          if (regex) {
+            match = regex.test(line);
+          } else {
+            if (ignoreCase) {
+              match = line.toLowerCase().includes(pattern.toLowerCase());
+            } else {
+              match = line.includes(pattern);
+            }
+          }
+          if (match) {
+            if (files.length > 1) {
+              outLines.push(`${file.path}:${line}`);
+            } else {
+              outLines.push(line);
+            }
+          }
+        }
+      }
+      setTextOutput(outLines.join("\n"));
       setInput("");
     } else {
-      setError(`Unknown command: ${cmd}. Only 'cd' and 'ls' supported.`);
+      setError(`Unknown command: ${cmd}. Supported: cd, ls, cat, head, tail, wc, grep.`);
     }
   };
 
@@ -242,6 +420,18 @@ const App: React.FC = () => {
     });
   }
 }, [hovered]);
+
+  const getFileContent = (raw: string): { path: string; content: string } | null => {
+    let target: string;
+    if (raw.startsWith("/")) {
+      target = normalizePath(raw);
+    } else {
+      target = normalizePath(joinPaths(cwd, raw));
+    }
+    const node = findNodeByPath(fileSystem, target);
+    if (!node || node.type !== "file") return null;
+    return { path: target, content: node.content ?? "" };
+  };
 
   // Hover info
   const computeCdInfo = () => {
@@ -266,8 +456,6 @@ const App: React.FC = () => {
   const cdInfo = computeCdInfo();
 
   // ----------- AUTOCOMPLETE & MISSIONS HELPERS -----------
-  const getPathCompletions = (arg: string): string[] => {
-  // Helper: Find the longest common prefix among an array of strings
   const longestCommonPrefix = (arr: string[]): string => {
     if (arr.length === 0) return "";
     let prefix = arr[0];
@@ -279,6 +467,7 @@ const App: React.FC = () => {
     }
     return prefix;
   };
+  const getPathCompletions = (arg: string): string[] => {
     let baseDir: string;
     let prefix: string;
     if (arg.startsWith("/")) {
@@ -389,8 +578,11 @@ const App: React.FC = () => {
                 checked={showHiddenInTree}
                 onChange={(e) => setShowHiddenInTree(e.target.checked)}
               />{" "}
-              Show hidden in tree
+              Show hidden files
             </label>
+            <button style={{ marginLeft: 12 }} onClick={collapseAll} aria-label="Collapse all folders">
+              Collapse all folders
+            </button>
           </div>
           <div className="tree-wrapper">
             <DirectoryTree
@@ -402,6 +594,11 @@ const App: React.FC = () => {
               toggleExpand={toggleExpand}
               showHidden={showHiddenInTree}
             />
+          </div>
+          <div className="hint" style={{ marginTop: 8 }}>
+            <p style={{ margin: 0 }}>
+              Navigation: <kbd>←</kbd> parent, <kbd>→</kbd> first child directory, <kbd>↑</kbd>/<kbd>↓</kbd> among sibling directories. Clicking a directory name sets CWD. Clicking the folder icon toggles collapse/expand.
+            </p>
           </div>
         </div>
 
@@ -588,10 +785,25 @@ const App: React.FC = () => {
                 </div>
               </div>
             )}
+            {textOutput && (
+              <div className="section">
+                <div className="label">Output:</div>
+                <div className="code-block" style={{ padding: "6px 12px", whiteSpace: "pre-wrap", fontFamily: "monospace" }}>
+                  <pre style={{ margin: 0 }}>{textOutput}</pre>
+                </div>
+              </div>
+            )}
             {error && <div className="error">{error}</div>}
             <div className="hint" style={{ marginTop: 8 }}>
               <p style={{ margin: 0 }}>
-                Supported commands: <code>cd &lt;path&gt;</code> and <code>ls [&lt;path&gt;]</code>.
+                Supported commands:<br />
+                <code>cd &lt;path&gt;</code><br />
+                <code>ls [-a|-l|-h|-s] [&lt;path&gt;]</code><br />
+                <code>cat &lt;file&gt;</code><br />
+                <code>head [-n N] &lt;file&gt;</code><br />
+                <code>tail [-n N] &lt;file&gt;</code><br />
+                <code>wc [-l|-w|-c] &lt;file&gt;</code><br />
+                <code>grep [-i] &lt;pattern&gt; &lt;file&gt;</code>.
               </p>
             </div>
           </div>
@@ -608,7 +820,7 @@ const App: React.FC = () => {
                 <>
                   <pre className="code-block">{hovered}</pre>
                   <div className="subsection">
-                    <div className="label">Suggested cd:</div>
+                    <div className="label"></div>
                     {cdInfo && cdInfo.valid ? (
                       <>
                         <div>
@@ -637,13 +849,6 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          <div className="hint">
-            <p style={{ margin: 0 }}>
-              Navigation: <kbd>←</kbd> parent, <kbd>→</kbd> first child directory, <kbd>↑</kbd>/
-              <kbd>↓</kbd> among sibling directories. Clicking a directory name sets CWD. Clicking the
-              folder icon toggles collapse/expand.
-            </p>
-          </div>
         </div>
       </div>
 
