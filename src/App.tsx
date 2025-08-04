@@ -35,6 +35,7 @@ type LsOutput = {
 const App: React.FC = () => {
   const TOOLTIP_DATA: Record<string, { usage: string; detail: string }> = {
     cd: { usage: "cd <path>", detail: "Change working directory to <path>. Without argument returns to home." },
+    pwd: { usage: "pwd", detail: "Print the current working directory." },
     ls: {
       usage: "ls [-a|-l|-h|-s] [path]",
       detail: "-a: show hidden files\n-l: long listing (permissions, size, mtime)\n-h: human-readable sizes\n-s: show block sizes"
@@ -695,8 +696,11 @@ const App: React.FC = () => {
         }
         result.text = outLinesCut.join("\n");
         return result;
+      } else if (cmd === "pwd") {
+        result.text = cwd;
+        return result;
       } else {
-        result.error = `Unknown command: ${cmd}. Supported: cd, ls, cat, head, tail, wc, grep, cut.`;
+        result.error = `Unknown command: ${cmd}. Supported: cd, pwd, ls, cat, head, tail, wc, grep, cut.`;
         return result;
       }
     };
@@ -1261,6 +1265,7 @@ const App: React.FC = () => {
             <div className="hint" style={{ marginTop: 8 }}>
               <p style={{ margin: 0 }}>
                 Supported commands:<br />
+                <CommandWithTooltip cmdKey="pwd"><code>pwd</code></CommandWithTooltip><br />
                 <CommandWithTooltip cmdKey="cd"><code>cd &lt;path&gt;</code></CommandWithTooltip><br />
                 <CommandWithTooltip cmdKey="ls"><code>ls [-a|-l|-h|-s] [&lt;path&gt;]</code></CommandWithTooltip><br />
                 <CommandWithTooltip cmdKey="cat"><code>cat &lt;file&gt;</code></CommandWithTooltip><br />
