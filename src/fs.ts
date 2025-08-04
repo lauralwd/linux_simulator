@@ -278,7 +278,19 @@ s4	treated	2`
                   type: "dir",
                   children: [
                     { name: "pipeline.sh", type: "file" },
-                    { name: "README.md", type: "file" }
+                    { name: "README.md", type: "file" },
+                    {
+                      name: "pipeline.log",
+                      type: "file",
+                      content: `[2025-07-20 10:00:00] INFO Starting pipeline
+[2025-07-20 10:01:00] WARNING Low memory
+[2025-07-20 10:02:00] ERROR Failed to fetch reference genome
+[2025-07-20 10:03:00] INFO Retrying download
+[2025-07-20 10:04:00] WARNING Network latency detected
+[2025-07-20 10:05:00] ERROR Download failed again
+[2025-07-20 10:06:00] INFO Pipeline aborted
+`
+                    }
                   ]
                 },
                 {

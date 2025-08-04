@@ -187,7 +187,7 @@ const App: React.FC = () => {
 
   const [cwd, setCwdRaw] = useState<string>(normalizePath(HOME));
   const [hovered, setHovered] = useState<string | null>(null);
-  const [input, setInput] = useState<string>(`cd ${HOME}`);
+  const [input, setInput] = useState<string>(``);
   const [error, setError] = useState<string | null>(null);
   const [dark, setDark] = useState<boolean>(() => {
     const stored = localStorage.getItem("theme");
@@ -956,7 +956,16 @@ const App: React.FC = () => {
         { id: "list-home", description: "List contents of your home directory", isComplete: () => lsOutput?.path === "/home/user" && !lsOutput?.showAll },
         { id: "show-hidden-home", description: "Show hidden files in your home directory", isComplete: () => lsOutput?.path === "/home/user" && lsOutput?.showAll },
         { id: "view-readme", description: "View (cat) README.txt content", isComplete: () => (textOutput?.toLowerCase().includes("filesystem visualizer") ?? false) },
-        { id: "cd-thesis", description: "Change directory (cd) to /home/user/Documents/Thesis", isComplete: () => normalizePath(cwd) === "/home/user/Documents/Thesis" },
+        { id: "cd-thesis", description: "Change directory (cd) to /home/user/Documents/Thesis with a relative path!", isComplete: () => {
+          if (normalizePath(cwd) !== "/home/user/Documents/Thesis") return false;
+          if (!lastCommand) return false;
+          const parts = lastCommand.trim().split(/\s+/);
+          if (parts[0] !== "cd") return false;
+          const arg = parts.slice(1).join(" ");
+          if (!arg) return false;
+          if (arg.startsWith("/") || arg.startsWith("~")) return false; // must be relative
+          return true;
+        } },
       ]
     },
     {
@@ -964,35 +973,112 @@ const App: React.FC = () => {
       missions: [
         { id: "head-chapter1", description: "Show first 5 lines of chapter1.md", isComplete: () => textOutput?.includes("# Chapter 1: Introduction") ?? false },
         { id: "tail-chapter2", description: "Show last lines of chapter2.md", isComplete: () => (textOutput?.includes("1. Data collection") && textOutput?.includes("2. Analysis")) ?? false },
-        { id: "find-example-fasta", description: "Navigate the home folder to find example.fasta", isComplete: () => normalizePath(cwd) === "/home/user/Documents/Research" },
-        { id: "count-fasta-seqs", description: "Count sequences in example.fasta (Use grep '^>' to find fasta headers)", isComplete: () => textOutput?.trim().startsWith("3") ?? false },
+        { id: "search-filesystem", description: "Search for the word 'filesystem' in README.txt", isComplete: () => {
+          if (!textOutput) return false;
+          if (!lastCommand) return false;
+          const out = textOutput.toLowerCase();
+          if (!out.includes("filesystem")) return false;
+          const cmd = lastCommand.toLowerCase();
+          if (!cmd.includes("grep")) return false;
+          if (!cmd.includes("filesystem")) return false;
+          if (!cmd.includes("readme")) return false;
+          return true;
+        } },
+        { id: "find-example-fasta", description: "Browse the home folder via command line to find example.fasta", isComplete: () => normalizePath(cwd) === "/home/user/Documents/Research" },
       ]
     },
     {
-      groupName: "Advanced Listing",
+      groupName: "File inspection",
       missions: [
+        { id: "count-fasta-seqs", description: "Count sequences in example.fasta (Use grep '^>' to find fasta headers)", isComplete: () => textOutput?.trim().startsWith("3") ?? false },
         { id: "thesis-sizes", description: "List items in Thesis directory with human-readable sizes and block counts using ls -lhs", isComplete: () => lsOutput?.path === "/home/user/Documents/Thesis" && lsOutput?.long && lsOutput?.human && lsOutput?.blocks },
-        { id: "sample-id-condition", description: "Extract sample IDs and conditions from sample metadata in Laura's Research folder", isComplete: () => (textOutput?.includes("sample_id") && textOutput?.includes("control")) ?? false },
-        { id: "search-filesystem", description: "Search for the word 'filesystem' in README.txt", isComplete: () => {
+        {
+          id: "sample-id-condition",
+          description: "Extract sample IDs and conditions from sample metadata in Laura's Research folder using cut -f1,2",
+          isComplete: () => {
             if (!textOutput) return false;
             if (!lastCommand) return false;
-            const out = textOutput.toLowerCase();
-            if (!out.includes("filesystem")) return false;
-            const cmd = lastCommand.toLowerCase();
-            if (!cmd.includes("grep")) return false;
-            if (!cmd.includes("filesystem")) return false;
-            if (!cmd.includes("readme")) return false;
+            // must have used cut
+            const parts = lastCommand.trim().split(/\s+/);
+            if (parts[0] !== "cut") return false;
+            // find fields argument for -f1,2 or -f 1,2
+            let fieldsArg: string | null = null;
+            for (let i = 1; i < parts.length; i++) {
+              if (parts[i].startsWith("-f")) {
+                if (parts[i] === "-f") {
+                  if (parts[i + 1]) fieldsArg = parts[i + 1];
+                } else {
+                  fieldsArg = parts[i].slice(2);
+                }
+              }
+            }
+            if (fieldsArg !== "1,2") return false;
+            // check output has header and at least one data line
+            const lines = textOutput.trim().split(/\n/);
+            if (lines.length < 2) return false;
+            const header = lines[0];
+            if (!(header.includes("sample_id") && header.includes("condition"))) return false;
+            // verify at least one sample line with expected pattern (e.g., s1 control)
+            if (!lines.some((line) => line.startsWith("s1") && line.includes("control"))) return false;
             return true;
-        } },
+          }
+        },
       ]
     },
     {
       groupName: "Projects & Data",
       missions: [
-        { id: "find-index-in-webapp", description: "List contents of webapp project and filter for 'index'", isComplete: () => textOutput?.includes("index.html") ?? false },
-        { id: "show-grocery", description: "Display the grocery list", isComplete: () => textOutput?.includes("Milk") ?? false },
         { id: "count-expenses", description: "Count number of expense entries (excluding header) in expenses.csv", isComplete: () => { const t = textOutput?.trim(); if (!t) return false; return t.split(/\s+/)[0] === "4"; } },
-        { id: "find-analysis-project", description: "Find the analysis project by listing Projects and filtering for 'analysis'", isComplete: () => textOutput?.toLowerCase().includes("analysis") ?? false }
+                {
+          id: "count-pipeline-errors",
+          description: "Count number of errors in pipeline.log using grep and wc",
+          isComplete: () => {
+            if (!textOutput) return false;
+            if (!lastCommand) return false;
+            const lc = lastCommand.toLowerCase();
+            if (!lc.includes("grep") || !lc.includes("error") || !lc.includes("pipeline.log")) return false;
+            const usedCount = lc.includes("-c") || lc.includes("| wc -l");
+            if (!usedCount) return false;
+            const out = textOutput.trim();
+            return /^\d+$/.test(out);
+          }
+        },
+        {
+          id: "last-warnings-pipeline",
+          description: "Show last 5 warnings from pipeline.log",
+          isComplete: () => {
+            if (!textOutput) return false;
+            if (!lastCommand) return false;
+            const lc = lastCommand.toLowerCase();
+            if (!lc.includes("grep") || !lc.includes("warning") || !lc.includes("pipeline.log")) return false;
+            if (!lc.includes("tail")) return false;
+            return textOutput.toLowerCase().includes("warning");
+          }
+        },
+        {
+          id: "find-kinase-genes",
+          description: "Find genes annotated with 'kinase' in gene_annotations.tsv",
+          isComplete: () => {
+            if (!textOutput) return false;
+            if (!lastCommand) return false;
+            const lc = lastCommand.toLowerCase();
+            if (!lc.includes("grep") || !lc.includes("kinase") || !lc.includes("gene_annotations.tsv")) return false;
+            return /geneA|geneC|geneE/.test(textOutput);
+          }
+        },
+        {
+          id: "count-html-webapp",
+          description: "Count .html files in webapp project",
+          isComplete: () => {
+            if (!textOutput) return false;
+            if (!lastCommand) return false;
+            const out = textOutput.trim();
+            if (!/^\d+$/.test(out)) return false;
+            const lc = lastCommand.toLowerCase();
+            if (!lc.includes(".html")) return false;
+            return true;
+          }
+        }
       ]
     }
   ], [lsOutput, textOutput, cwd, lastCommand, normalizePath]);
