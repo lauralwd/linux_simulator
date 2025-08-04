@@ -948,43 +948,68 @@ const App: React.FC = () => {
     setSuggestions([]);
   }, [input, cwd]);
 
-  const missions = [
-    { id: "list-home", description: "List contents of your home directory", isComplete: () => lsOutput?.path === "/home/user" && !lsOutput?.showAll },
-    { id: "show-hidden-home", description: "Show hidden files in your home directory", isComplete: () => lsOutput?.path === "/home/user" && lsOutput?.showAll },
-    { id: "view-readme", description: "View (cat) README.txt content", isComplete: () => (textOutput?.toLowerCase().includes("filesystem visualizer") ?? false) },
-    { id: "cd-thesis", description: "Change directory (cd) to /home/user/Documents/Thesis", isComplete: () => normalizePath(cwd) === "/home/user/Documents/Thesis" },
-    { id: "head-chapter1", description: "Show first 5 lines of chapter1.md", isComplete: () => textOutput?.includes("# Chapter 1: Introduction") ?? false },
-    { id: "tail-chapter2", description: "Show last lines of chapter2.md", isComplete: () => (textOutput?.includes("1. Data collection") && textOutput?.includes("2. Analysis")) ?? false },
-    { id: "find-example-fasta", description: "Navigate the home folder to find example.fasta", isComplete: () => normalizePath(cwd) === "/home/user/Documents/Research" },
-    { id: "count-fasta-seqs", description: "Count sequences in example.fasta (Use grep '^>' to find fasta headers)", isComplete: () => textOutput?.trim().startsWith("3") ?? false },
-    { id: "thesis-sizes", description: "List items in Thesis directory with human-readable sizes and block counts using ls -lhs", isComplete: () => lsOutput?.path === "/home/user/Documents/Thesis" && lsOutput?.long && lsOutput?.human && lsOutput?.blocks },
-    { id: "sample-id-condition", description: "Extract sample IDs and conditions from sample metadata in Laura's Research folder", isComplete: () => (textOutput?.includes("sample_id") && textOutput?.includes("control")) ?? false },
-    { id: "search-filesystem", description: "Search for the word 'filesystem' in README.txt", isComplete: () => {
-        if (!textOutput) return false;
-        if (!lastCommand) return false;
-        const out = textOutput.toLowerCase();
-        if (!out.includes("filesystem")) return false;
-        const cmd = lastCommand.toLowerCase();
-        if (!cmd.includes("grep")) return false;
-        if (!cmd.includes("filesystem")) return false;
-        if (!cmd.includes("readme")) return false;
-        return true;
-    } },
-    { id: "find-index-in-webapp", description: "List contents of webapp project and filter for 'index'", isComplete: () => textOutput?.includes("index.html") ?? false },
-    { id: "show-grocery", description: "Display the grocery list", isComplete: () => textOutput?.includes("Milk") ?? false },
-    { id: "count-expenses", description: "Count number of expense entries (excluding header) in expenses.csv", isComplete: () => { const t = textOutput?.trim(); if (!t) return false; return t.split(/\s+/)[0] === "4"; } },
-    { id: "find-analysis-project", description: "Find the analysis project by listing Projects and filtering for 'analysis'", isComplete: () => textOutput?.toLowerCase().includes("analysis") ?? false }
-  ];
+  // Grouped exercise structure
+  const allMissions = React.useMemo(() => [
+    {
+      groupName: "Basics",
+      missions: [
+        { id: "list-home", description: "List contents of your home directory", isComplete: () => lsOutput?.path === "/home/user" && !lsOutput?.showAll },
+        { id: "show-hidden-home", description: "Show hidden files in your home directory", isComplete: () => lsOutput?.path === "/home/user" && lsOutput?.showAll },
+        { id: "view-readme", description: "View (cat) README.txt content", isComplete: () => (textOutput?.toLowerCase().includes("filesystem visualizer") ?? false) },
+        { id: "cd-thesis", description: "Change directory (cd) to /home/user/Documents/Thesis", isComplete: () => normalizePath(cwd) === "/home/user/Documents/Thesis" },
+      ]
+    },
+    {
+      groupName: "File Viewing",
+      missions: [
+        { id: "head-chapter1", description: "Show first 5 lines of chapter1.md", isComplete: () => textOutput?.includes("# Chapter 1: Introduction") ?? false },
+        { id: "tail-chapter2", description: "Show last lines of chapter2.md", isComplete: () => (textOutput?.includes("1. Data collection") && textOutput?.includes("2. Analysis")) ?? false },
+        { id: "find-example-fasta", description: "Navigate the home folder to find example.fasta", isComplete: () => normalizePath(cwd) === "/home/user/Documents/Research" },
+        { id: "count-fasta-seqs", description: "Count sequences in example.fasta (Use grep '^>' to find fasta headers)", isComplete: () => textOutput?.trim().startsWith("3") ?? false },
+      ]
+    },
+    {
+      groupName: "Advanced Listing",
+      missions: [
+        { id: "thesis-sizes", description: "List items in Thesis directory with human-readable sizes and block counts using ls -lhs", isComplete: () => lsOutput?.path === "/home/user/Documents/Thesis" && lsOutput?.long && lsOutput?.human && lsOutput?.blocks },
+        { id: "sample-id-condition", description: "Extract sample IDs and conditions from sample metadata in Laura's Research folder", isComplete: () => (textOutput?.includes("sample_id") && textOutput?.includes("control")) ?? false },
+        { id: "search-filesystem", description: "Search for the word 'filesystem' in README.txt", isComplete: () => {
+            if (!textOutput) return false;
+            if (!lastCommand) return false;
+            const out = textOutput.toLowerCase();
+            if (!out.includes("filesystem")) return false;
+            const cmd = lastCommand.toLowerCase();
+            if (!cmd.includes("grep")) return false;
+            if (!cmd.includes("filesystem")) return false;
+            if (!cmd.includes("readme")) return false;
+            return true;
+        } },
+      ]
+    },
+    {
+      groupName: "Projects & Data",
+      missions: [
+        { id: "find-index-in-webapp", description: "List contents of webapp project and filter for 'index'", isComplete: () => textOutput?.includes("index.html") ?? false },
+        { id: "show-grocery", description: "Display the grocery list", isComplete: () => textOutput?.includes("Milk") ?? false },
+        { id: "count-expenses", description: "Count number of expense entries (excluding header) in expenses.csv", isComplete: () => { const t = textOutput?.trim(); if (!t) return false; return t.split(/\s+/)[0] === "4"; } },
+        { id: "find-analysis-project", description: "Find the analysis project by listing Projects and filtering for 'analysis'", isComplete: () => textOutput?.toLowerCase().includes("analysis") ?? false }
+      ]
+    }
+  ], [lsOutput, textOutput, cwd, lastCommand, normalizePath]);
+
+  const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
 
   useEffect(() => {
     setCompletedMissions((prev) => {
       const copy = new Set(prev);
-      missions.forEach((m) => {
-        if (m.isComplete()) copy.add(m.id);
+      allMissions.forEach((group) => {
+        group.missions.forEach((m) => {
+          if (m.isComplete()) copy.add(m.id);
+        });
       });
       return copy;
     });
-  }, [cwd, lsOutput, textOutput, lastCommand]);
+  }, [cwd, lsOutput, textOutput, lastCommand, allMissions]);
 
   useEffect(() => {
     localStorage.setItem("completedMissions", JSON.stringify(Array.from(completedMissions)));
@@ -1057,7 +1082,19 @@ const App: React.FC = () => {
             <div className="section">
               <div className="label">Exercises</div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div>{missions.filter((m) => completedMissions.has(m.id) || m.isComplete()).length} / {missions.length} complete</div>
+                <div>
+                  {/* Show completed/total for current group */}
+                  {(() => {
+                    const group = allMissions[currentGroupIndex];
+                    const groupMissions = group.missions;
+                    const completedCount = groupMissions.filter((m) => completedMissions.has(m.id) || m.isComplete()).length;
+                    return (
+                      <>
+                        {completedCount} / {groupMissions.length} complete in <strong>{group.groupName}</strong>
+                      </>
+                    );
+                  })()}
+                </div>
                 <button
                   onClick={() => {
                     setCompletedMissions(new Set());
@@ -1065,17 +1102,54 @@ const App: React.FC = () => {
                   }}
                   style={{ marginLeft: 12 }}
                 >
-                  Reset
+                  Reset All
                 </button>
               </div>
+              {/* Tab buttons */}
+              <div style={{ marginTop: 10, marginBottom: 4, display: "flex", gap: 6 }}>
+                {allMissions.map((group, idx) => (
+                  <button
+                    key={group.groupName}
+                    type="button"
+                    onClick={() => setCurrentGroupIndex(idx)}
+                    style={{
+                      fontWeight: currentGroupIndex === idx ? 700 : 400,
+                      background: currentGroupIndex === idx ? "#e0e0e0" : undefined,
+                      borderRadius: 4,
+                      border: "1px solid #aaa",
+                      padding: "2px 8px",
+                      cursor: "pointer"
+                    }}
+                  >
+                    {group.groupName}
+                  </button>
+                ))}
+              </div>
+              {/* List only missions for current group */}
               <ul style={{ paddingLeft: 16, marginTop: 6 }}>
-                {missions.map((m) => (
-                  <li key={m.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {allMissions[currentGroupIndex].missions.map((m) => (
+                  <li
+                    key={m.id}
+                    style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}
+                  >
                     <span>{completedMissions.has(m.id) || m.isComplete() ? "✅" : "⬜"}</span>
                     <span>{m.description}</span>
                   </li>
                 ))}
               </ul>
+              {/* Group summary at bottom */}
+              <div style={{ marginTop: 8, fontSize: "0.95em", color: "#666" }}>
+                {(() => {
+                  const totalCompleted = allMissions.reduce((acc, group) =>
+                    acc + group.missions.filter((m) => completedMissions.has(m.id) || m.isComplete()).length, 0);
+                  const totalMissions = allMissions.reduce((acc, group) => acc + group.missions.length, 0);
+                  return (
+                    <span>
+                      Overall: {totalCompleted} / {totalMissions} complete
+                    </span>
+                  );
+                })()}
+              </div>
             </div>
           </div>
           <div className="shell">
