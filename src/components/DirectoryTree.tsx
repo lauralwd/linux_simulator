@@ -7,6 +7,8 @@ type Props = {
   cwd: string;
   setCwd: (p: string) => void;
   setHoveredPath: (p: string | null) => void;
+  expanded: Set<string>;
+  toggleExpand: (p: string) => void;
 };
 
 const findNodeByPath = (root: FSNode, path: string): FSNode | null => {
@@ -30,6 +32,8 @@ type NodeProps = {
   setHoveredPath: (p: string | null) => void;
   level: number;
   registerRef: (path: string, el: HTMLDivElement | null) => void;
+  expanded: Set<string>;
+  toggleExpand: (p: string) => void;
 };
 
 const TreeNode: React.FC<NodeProps> = ({
@@ -39,11 +43,14 @@ const TreeNode: React.FC<NodeProps> = ({
   setCwd,
   setHoveredPath,
   level,
-  registerRef
+  registerRef,
+  expanded,
+  toggleExpand
 }) => {
   const path = joinPaths(parentPath, node.name);
   const isCwd = normalizePath(cwd) === normalizePath(path);
   const hasChildren = node.type === "dir" && node.children && node.children.length > 0;
+  const isExpanded = expanded.has(normalizePath(path));
 
   const refCallback = (el: HTMLDivElement | null) => {
     registerRef(path, el);
@@ -51,28 +58,40 @@ const TreeNode: React.FC<NodeProps> = ({
 
   return (
     <div role="treeitem"
-      aria-expanded={hasChildren ? true : undefined}
+      aria-expanded={hasChildren ? isExpanded : undefined}
       aria-selected={isCwd}
       style={{ paddingLeft: level * 16, position: "relative" }}
     >
       <div
         ref={refCallback}
-        tabIndex={isCwd ? 0 : -1}
         className={`node-row ${isCwd ? "cwd" : ""}`}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (node.type === "dir") setCwd(path);
-        }}
         onMouseEnter={() => setHoveredPath(path)}
         onMouseLeave={() => setHoveredPath(null)}
-        aria-label={node.type === "dir" ? `Directory ${path}` : `File ${path}`}
       >
-        <span aria-hidden="true" style={{ userSelect: "none", marginRight: 6 }}>
-          {node.type === "dir" ? "📁" : "📄"}
+        <span
+          aria-label={hasChildren ? (isExpanded ? "Collapse folder" : "Expand folder") : undefined}
+          role={hasChildren ? "button" : undefined}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (hasChildren) toggleExpand(path);
+          }}
+          style={{ userSelect: "none", marginRight: 6, cursor: hasChildren ? "pointer" : "default" }}
+        >
+          {node.type === "dir" ? (isExpanded ? "📂" : "📁") : "📄"}
         </span>
-        <span>{node.name || "/"}</span>
+        <span
+          onClick={(e) => {
+            e.stopPropagation();
+            if (node.type === "dir") setCwd(path);
+          }}
+          style={{ cursor: node.type === "dir" ? "pointer" : "default" }}
+          tabIndex={isCwd ? 0 : -1}
+          aria-label={node.type === "dir" ? `Directory ${path}` : `File ${path}`}
+        >
+          {node.name || "/"}
+        </span>
       </div>
-      {hasChildren && (
+      {hasChildren && isExpanded && (
         <div role="group">
           {node.children!.map((child) => (
             <TreeNode
@@ -84,6 +103,8 @@ const TreeNode: React.FC<NodeProps> = ({
               setHoveredPath={setHoveredPath}
               level={level + 1}
               registerRef={registerRef}
+              expanded={expanded}
+              toggleExpand={toggleExpand}
             />
           ))}
         </div>
@@ -92,8 +113,14 @@ const TreeNode: React.FC<NodeProps> = ({
   );
 };
 
-export const DirectoryTree: React.FC<Props> = ({ root, cwd, setCwd, setHoveredPath }) => {
-  // Keep a map of path -> element so we can focus when cwd changes
+export const DirectoryTree: React.FC<Props> = ({
+  root,
+  cwd,
+  setCwd,
+  setHoveredPath,
+  expanded,
+  toggleExpand
+}) => {
   const refMap = useRef<Map<string, HTMLDivElement>>(new Map());
 
   const registerRef = (path: string, el: HTMLDivElement | null) => {
@@ -105,7 +132,6 @@ export const DirectoryTree: React.FC<Props> = ({ root, cwd, setCwd, setHoveredPa
   };
 
   useEffect(() => {
-    // Focus the current cwd element with a small delay to allow rendering
     const normalized = normalizePath(cwd);
     const el = refMap.current.get(normalized);
     if (el) {
@@ -123,6 +149,8 @@ export const DirectoryTree: React.FC<Props> = ({ root, cwd, setCwd, setHoveredPa
         setHoveredPath={setHoveredPath}
         level={0}
         registerRef={registerRef}
+        expanded={expanded}
+        toggleExpand={toggleExpand}
       />
     </div>
   );
