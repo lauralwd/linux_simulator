@@ -1,3 +1,4 @@
+import ShellPanel from "./components/shell_panel";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Header from "./components/header";
 import CwdHoverInfo from "./components/cwd_hover_info";
@@ -165,9 +166,6 @@ const App: React.FC = () => {
       const normalized = normalizePath(p);
       if (isDirectory(fileSystem, normalized)) {
         setCwdRaw(normalized);
-        setError(null);
-      } else {
-        setError(`cd: not a directory: ${p}`);
       }
     },
     [setCwdRaw]
@@ -181,19 +179,7 @@ const App: React.FC = () => {
     findNodeByPath,
     isDirectory,
   });
-  const {
-    input,
-    setInput,
-    error,
-    lsOutput,
-    textOutput,
-    lastCommand,
-    history,
-    historyIndex,
-    suggestions,
-    handleShellSubmit,
-    handleKeyDown,
-  } = shell;
+  const { lastCommand, lsOutput, textOutput } = shell;
 
   const toggleExpand = (p: string) => {
     setExpanded((prev) => {
@@ -520,271 +506,14 @@ const App: React.FC = () => {
             currentGroupIndex={currentGroupIndex}
             setCurrentGroupIndex={setCurrentGroupIndex}
           />
-          <div className="shell">
-            <form onSubmit={handleShellSubmit}>
-              <label htmlFor="shell-input" className="visually-hidden">
-                Shell input
-              </label>
-              <div className="input-row">
-                <code className="prompt">{`user@demo:${getPromptCwd()}$`}</code>
-                <input
-                  id="shell-input"
-                  aria-label="Shell input"
-                  value={input}
-                  onChange={(e) => { setInput(e.target.value); setHistoryIndex(null); }}
-                  onKeyDown={(e) => {
-                    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
-                      e.preventDefault();
-                      if (e.key === "ArrowUp") {
-                        setHistoryIndex((prev) => {
-                          let newIndex: number | null;
-                          if (prev === null) newIndex = history.length - 1;
-                          else newIndex = Math.max(0, prev - 1);
-                          if (newIndex !== null && history[newIndex] !== undefined) {
-                            setInput(history[newIndex]);
-                          }
-                          return newIndex;
-                        });
-                      } else {
-                        // ArrowDown
-                        setHistoryIndex((prev) => {
-                          if (prev === null) return null;
-                          const newIndex = prev + 1;
-                          if (newIndex >= history.length) {
-                            setInput("");
-                            return null;
-                          } else {
-                            setInput(history[newIndex]);
-                            return newIndex;
-                          }
-                        });
-                      }
-                      return;
-                    }
-                    if (e.key === "Tab") {
-                      e.preventDefault();
-                      if (suggestions.length === 0) return;
-                      // split off last pipe stage
-                      const partsByPipe = input.split("|");
-                      const lastIdx = partsByPipe.length - 1;
-                      const before = partsByPipe.slice(0, lastIdx).join("|");
-                      const lastStage = partsByPipe[lastIdx];
-                      const endsWithSpace = /\s$/.test(lastStage);
-                      const stageTrimmed = lastStage.trimStart();
-                      const tokens = stageTrimmed.trim().split(/\s+/).filter(Boolean);
-                      let newLastStage = "";
-
-                      if (tokens.length === 0) {
-                        // completing a new command in empty stage
-                        let completion = suggestions[0];
-                        if (!completion.endsWith("/")) completion = completion + " ";
-                        newLastStage = completion;
-                      } else if (tokens.length === 1 && !endsWithSpace) {
-                        // completing the command name
-                        let completion = suggestions[0];
-                        if (!completion.endsWith(" ")) completion = completion + " ";
-                        // preserve leading whitespace
-                        const leading = lastStage.match(/^\s*/)?.[0] || "";
-                        newLastStage = leading + completion;
-                      } else {
-                        // completing argument (path) in this stage
-                        const lastToken = tokens[tokens.length - 1];
-                        let completion = "";
-                        if (suggestions.length === 0) {
-                          completion = lastToken;
-                        } else if (suggestions.length === 1) {
-                          completion = suggestions[0];
-                        } else {
-                          // multiple candidates: use longest common prefix like bash
-                          const lcp = longestCommonPrefix(suggestions);
-                          if (lcp && lcp !== lastToken) {
-                            completion = lcp;
-                          } else {
-                            completion = suggestions[0];
-                          }
-                        }
-                        // append slash or space appropriately
-                        if (completion.endsWith("/")) {
-                          // directory: keep slash, no extra space
-                        } else if (suggestions.length === 1) {
-                          completion = completion + " ";
-                        } else if (completion !== lastToken) {
-                          // when expanding to longer common prefix, do not add space yet
-                        } else {
-                          // fallback: add space to the first suggestion if it is unambiguous
-                          completion = suggestions[0] + " ";
-                        }
-                        const prefixTokens = tokens.slice(0, -1);
-                        const leadingWhitespace = lastStage.match(/^\s*/)?.[0] || "";
-                        newLastStage = leadingWhitespace + [...prefixTokens, completion].join(" ");
-                      }
-                      const rebuilt = before ? before + "|" + newLastStage : newLastStage;
-                      setInput(rebuilt);
-                    }
-                  }}
-                  className="shell-input"
-                  autoComplete="off"
-                />
-                <button type="submit" className="primary" aria-label="Run command">
-                  Run
-                </button>
-              </div>
-              {suggestions.length > 0 && (
-                <div className="autocomplete-suggestions">
-                  {suggestions.map((s) => (
-                    <div
-                      key={s}
-                      className="suggestion"
-                      onClick={() => {
-                        const parts = input.trim().split(" ").filter(Boolean);
-                        const cmd = parts[0];
-                        const newInput = `${cmd} ${s}` + (s.endsWith("/") ? "" : " ");
-                        setInput(newInput);
-                        setSuggestions([]);
-                      }}
-                    >
-                      {s}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </form>
-            {lsOutput && (
-              <div className="section">
-                <div className="label">
-                  Last <code>ls</code> output at <code>{lsOutput.path}</code>:
-                </div>
-                <div className="code-block" style={{ padding: "6px 12px" }}>
-                  {lsOutput.entries.length === 0 ? (
-                    <div className="muted">(empty)</div>
-                  ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                      {lsOutput.long ? (
-                        (() => {
-                          // Simulate file sizes for block counts: 1 block (1024 bytes) per file, 2 blocks per dir
-                          const getNode = (name: string, type: string) => {
-                            const node = findNodeByPath(fileSystem, lsOutput.path + (lsOutput.path.endsWith("/") ? "" : "/") + name);
-                            return node;
-                          };
-                          const getSize = (node: FSNode | null) => {
-                            if (!node) return 0;
-                            if (node.type === "dir") return 2048;
-                            return 1024;
-                          };
-                          const getPerms = (node: FSNode | null) => {
-                            if (!node) return "----------";
-                            if (node.type === "dir") return "drwxr-xr-x";
-                            return "-rw-r--r--";
-                          };
-                          const totalBlocks = lsOutput.entries.reduce((acc, e) => {
-                            const node = getNode(e.name, e.type);
-                            const size = getSize(node);
-                            return acc + Math.ceil(size / 1024);
-                          }, 0);
-                          const humanReadableSize = (n: number) => {
-                            if (n < 1024) return `${n} B`;
-                            if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)}K`;
-                            return `${(n / (1024 * 1024)).toFixed(1)}M`;
-                          };
-                          return (
-                            <>
-                              {lsOutput.blocks && (
-                                <div>
-                                  total{" "}
-                                  {lsOutput.human
-                                    ? humanReadableSize(totalBlocks * 1024)
-                                    : totalBlocks}
-                                </div>
-                              )}
-                              {lsOutput.entries.map((e) => {
-                                const node = getNode(e.name, e.type);
-                                const size = getSize(node);
-                                const blockCount = Math.ceil(size / 1024);
-                                return (
-                                  <div key={e.name} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                    {lsOutput.blocks && (
-                                      <span style={{ minWidth: 36, textAlign: "right", color: "#888" }}>
-                                        {lsOutput.human
-                                          ? humanReadableSize(blockCount * 1024)
-                                          : blockCount}
-                                      </span>
-                                    )}
-                                    <span style={{ minWidth: 11, fontFamily: "monospace" }}>
-                                      {getPerms(node)}
-                                    </span>
-                                    <span aria-hidden="true" style={{ marginLeft: 6, marginRight: 6 }}>
-                                      {e.type === "dir" ? "📁" : "📄"}
-                                    </span>
-                                    {e.name}
-                                  </div>
-                                );
-                              })}
-                            </>
-                          );
-                        })()
-                      ) : (
-                        lsOutput.entries.map((e) => {
-                          // Short format
-                          // Simulate file sizes for block counts: 1 block (1024 bytes) per file, 2 blocks per dir
-                          const node = findNodeByPath(fileSystem, lsOutput.path + (lsOutput.path.endsWith("/") ? "" : "/") + e.name);
-                          const size = node
-                            ? node.type === "dir"
-                              ? 2048
-                              : 1024
-                            : 0;
-                          const blockCount = Math.ceil(size / 1024);
-                          const humanReadableSize = (n: number) => {
-                            if (n < 1024) return `${n} B`;
-                            if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)}K`;
-                            return `${(n / (1024 * 1024)).toFixed(1)}M`;
-                          };
-                          return (
-                            <div key={e.name} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              {lsOutput.blocks && (
-                                <span style={{ minWidth: 36, textAlign: "right", color: "#888" }}>
-                                  {lsOutput.human
-                                    ? humanReadableSize(blockCount * 1024)
-                                    : blockCount}
-                                </span>
-                              )}
-                              <span aria-hidden="true" style={{ marginRight: 6 }}>
-                                {e.type === "dir" ? "📁" : "📄"}
-                              </span>
-                              {e.name}
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-            {textOutput && (
-              <div className="section">
-                <div className="label">Output:</div>
-                <div className="code-block output-block">
-                  <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{textOutput}</pre>
-                </div>
-              </div>
-            )}
-            {error && <div className="error">{error}</div>}
-            <div className="hint shell-hint">
-              <p style={{ margin: 0 }}>
-                Supported commands:<br />
-                <CommandWithTooltip cmdKey="pwd"><code>pwd</code></CommandWithTooltip><br />
-                <CommandWithTooltip cmdKey="cd"><code>cd &lt;path&gt;</code></CommandWithTooltip><br />
-                <CommandWithTooltip cmdKey="ls"><code>ls [-a|-l|-h|-s] [&lt;path&gt;]</code></CommandWithTooltip><br />
-                <CommandWithTooltip cmdKey="cat"><code>cat &lt;file&gt;</code></CommandWithTooltip><br />
-                <CommandWithTooltip cmdKey="head"><code>head [-n N] &lt;file&gt;</code></CommandWithTooltip><br />
-                <CommandWithTooltip cmdKey="tail"><code>tail [-n N] &lt;file&gt;</code></CommandWithTooltip><br />
-                <CommandWithTooltip cmdKey="wc"><code>wc [-l|-w|-c] &lt;file&gt;</code></CommandWithTooltip><br />
-                <CommandWithTooltip cmdKey="grep"><code>grep [-i] &lt;pattern&gt; &lt;file&gt;</code></CommandWithTooltip><br />
-                <CommandWithTooltip cmdKey="cut"><code>cut [-d DELIM] -f LIST &lt;file&gt;...</code></CommandWithTooltip><br />
-                <CommandWithTooltip cmdKey="|"><code>command1 | command2 (pipe)</code></CommandWithTooltip><br />
-              </p>
-            </div>
-          </div>
+          <ShellPanel
+            cwd={cwd}
+            setCwd={setCwd}
+            fileSystem={fileSystem}
+            HOME={HOME}
+            findNodeByPath={findNodeByPath}
+            isDirectory={isDirectory}
+          />
 
           <CwdHoverInfo cwd={cwd} hovered={hovered} cdInfo={cdInfo} />
 
