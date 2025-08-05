@@ -18,6 +18,14 @@
   --border: #3a436c;
 }
 
+.dark .exercise-card div[role="note"] {
+  color: #cbd5e1 !important;
+}
+
+.dark .exercise-card .section > div:last-child {
+  color: #94a3b8 !important;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -288,6 +296,7 @@ kbd {
   font-weight: 400;
   transition: background var(--transition), box-shadow var(--transition);
   margin-right: 4px;
+  color: var(--text);
 }
 .tab-button.active {
   background: var(--accent);
@@ -326,4 +335,54 @@ kbd {
 }
 .exercise-checkmark.pop {
   animation: pop 0.35s ease;
+}
+
+
+.app-description {
+  margin-top: 4px;
+  color: var(--muted);
+  max-width: 500px;
+}
+.tree-hint {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.tabs-container {
+  margin-top: 10px;
+  margin-bottom: 4px;
+  display: flex;
+  gap: 6px;
+}
+.exercise-order-note {
+  font-size: 0.75em;
+  margin-bottom: 4px;
+  color: #555;
+}
+.exercise-list {
+  padding-left: 16px;
+  margin-top: 6px;
+}
+.overall-summary {
+  margin-top: 8px;
+  font-size: 0.95em;
+  color: #666;
+}
+.shell-hint {
+  margin-top: 8px;
+}
+.cwd-explanation {
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 0.9em;
+}
+.path-note {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.9em;
+}
+.output-block {
+  padding: 6px 12px;
+  white-space: pre-wrap;
+  font-family: monospace;
 }

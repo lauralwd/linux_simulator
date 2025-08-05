@@ -1117,7 +1117,7 @@ const App: React.FC = () => {
         </div>
       </header>
         <div>
-          <p style={{ marginTop: 4, color: "var(--muted)" }}>
+          <p className="app-description">
             This interactive tool helps beginners explore Linux command line navigation. The directory tree on the left visually represents the filesystem you explore using the terminal on the right. Practice fundamental commands like <code>cd</code>, <code>ls</code>, and <code>pwd</code> to navigate this simulated environment. Real-time feedback and guided exercises support your learning and build confidence for working in real Linux systems.
           </p>
         </div>
@@ -1206,7 +1206,7 @@ const App: React.FC = () => {
                 You will need all supported commands to finish the all challenges.
               </div>
               {/* Tab buttons */}
-              <div style={{ marginTop: 10, marginBottom: 4, display: "flex", gap: 6 }}>
+              <div className="tabs-container">
                 {allMissions.map((group, idx) => {
                   const groupDone = group.missions.every((m) => completedMissions.has(m.id));
                   return (
@@ -1223,7 +1223,7 @@ const App: React.FC = () => {
                 })}
               </div>
               {/* List only missions for current group */}
-              <ul style={{ paddingLeft: 16, marginTop: 6 }} aria-label="Exercise list">
+              <ul className="exercise-list" aria-label="Exercise list">
                 {allMissions[currentGroupIndex].missions.map((m) => (
                   <li
                     key={m.id}
@@ -1235,7 +1235,7 @@ const App: React.FC = () => {
                 ))}
               </ul>
               {/* Group summary at bottom */}
-              <div style={{ marginTop: 8, fontSize: "0.95em", color: "#666" }}>
+              <div className="overall-summary">
                 {(() => {
                   const totalCompleted = allMissions.reduce((acc, group) =>
                     acc + group.missions.filter((m) => completedMissions.has(m.id)).length, 0);
@@ -1492,7 +1492,7 @@ const App: React.FC = () => {
             {textOutput && (
               <div className="section">
                 <div className="label">Output:</div>
-                <div className="code-block" style={{ padding: "6px 12px", whiteSpace: "pre-wrap", fontFamily: "monospace" }}>
+                <div className="code-block output-block">
                   <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{textOutput}</pre>
                 </div>
               </div>
