@@ -1,12 +1,15 @@
 {
-  "name": "filesystem-visualizer",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
+  "name": "linux_simulator",
+  "version": "0.2.0",
+  "private": false,
+"homepage": "https://lauralwd.github.io/linux_simulator",
+"scripts": {
+  "dev": "vite",
+  "build": "vite build",
+  "preview": "vite preview",
+  "predeploy": "npm run build",
+  "deploy": "gh-pages -d dist"
+},
   "dependencies": {
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
@@ -15,6 +18,7 @@
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
     "@vitejs/plugin-react": "^4.7.0",
+    "gh-pages": "^6.3.0",
     "typescript": "^5.0.0",
     "vite": "^7.0.6"
   }
