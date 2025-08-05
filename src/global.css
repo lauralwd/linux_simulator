@@ -341,7 +341,6 @@ kbd {
 .app-description {
   margin-top: 4px;
   color: var(--muted);
-  max-width: 500px;
 }
 .tree-hint {
   font-size: 0.8rem;
