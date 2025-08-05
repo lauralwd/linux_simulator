@@ -22,6 +22,13 @@ export function joinPaths(...segments: string[]): string {
   return normalizePath(combined);
 }
 
+// Expand '~' to HOME directory
+export function expandTilde(p: string, HOME: string): string {
+  if (p === "~") return HOME;
+  if (p.startsWith("~/")) return HOME + p.slice(1);
+  return p;
+}
+
 /**
  * Compute relative path from `from` to `to`. Similar semantics to Unix `realpath --relative-to`
  */
