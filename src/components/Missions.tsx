@@ -1,5 +1,3 @@
-
-
 // src/components/Missions.tsx
 export type Mission = {
   id: string;

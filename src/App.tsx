@@ -16,6 +16,7 @@ import { fileSystem, FSNode } from "./fs";
 // Utilities
 import { normalizePath, joinPaths, relativePath } from "./utils/path";
 import { useShell } from "./hooks/useShell";
+import { useMissions } from "./hooks/useMissions";
 
 const HOME = "/home/user";
 
@@ -136,19 +137,6 @@ const App: React.FC = () => {
   const [hoveredPathsSeen, setHoveredPathsSeen] = useState<Set<string>>(new Set());
   const [showHiddenInTree, setShowHiddenInTree] = useState<boolean>(false);
   const [showHiddenOverride, setShowHiddenOverride] = useState<boolean>(false);
-
-  // Missions
-  const [completedMissions, setCompletedMissions] = useState<Set<string>>(() => {
-    try {
-      const stored = localStorage.getItem("completedMissions");
-      if (stored) {
-        const arr: string[] = JSON.parse(stored);
-        return new Set(arr);
-      }
-    } catch {}
-    return new Set();
-  });
-  const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
 
   // User & Theme
   const [dark, setDark] = useState<boolean>(() => {
@@ -346,129 +334,6 @@ const App: React.FC = () => {
 
   const cdInfo = computeCdInfo();
 
-  // ----------- AUTOCOMPLETE & MISSIONS HELPERS -----------
-  const longestCommonPrefix = (arr: string[]): string => {
-    if (arr.length === 0) return "";
-    let prefix = arr[0];
-    for (let i = 1; i < arr.length; i++) {
-      while (arr[i].indexOf(prefix) !== 0) {
-        prefix = prefix.slice(0, -1);
-        if (prefix === "") return "";
-      }
-    }
-    return prefix;
-  };
-  const getPathCompletions = (arg: string): string[] => {
-    let useTildePrefix = false;
-    let processedArg = arg;
-    if (arg === "~" || arg.startsWith("~/")) {
-      useTildePrefix = true;
-      processedArg = expandTilde(arg);
-    }
-    let baseDir: string;
-    let prefix: string;
-    if (processedArg.startsWith("/")) {
-      if (processedArg.endsWith("/")) {
-        baseDir = normalizePath(processedArg);
-        prefix = "";
-      } else {
-        const idx = processedArg.lastIndexOf("/");
-        if (idx === -1 || idx === 0) {
-          baseDir = "/";
-          prefix = processedArg.slice(1);
-        } else {
-          baseDir = normalizePath(processedArg.slice(0, idx));
-          prefix = processedArg.slice(idx + 1);
-        }
-      }
-    } else {
-      if (processedArg.endsWith("/")) {
-        baseDir = normalizePath(joinPaths(cwd, processedArg));
-        prefix = "";
-      } else {
-        const idx = processedArg.lastIndexOf("/");
-        if (idx === -1) {
-          baseDir = cwd;
-          prefix = processedArg;
-        } else {
-          baseDir = normalizePath(joinPaths(cwd, processedArg.slice(0, idx)));
-          prefix = processedArg.slice(idx + 1);
-        }
-      }
-    }
-    const node = findNodeByPath(fileSystem, baseDir);
-    if (!node || node.type !== "dir" || !node.children) return [];
-    const matches = node.children
-      .filter((c) => c.name.startsWith(prefix))
-      .map((c) => {
-        let suggestionPath: string;
-        if (arg.startsWith("/") || arg.startsWith("~")) {
-          suggestionPath = baseDir === "/" ? `/${c.name}` : `${baseDir}/${c.name}`;
-        } else {
-          if (arg.includes("/")) {
-            suggestionPath = `${arg.slice(0, arg.lastIndexOf("/") + 1)}${c.name}`;
-          } else {
-            suggestionPath = c.name;
-          }
-        }
-        if (useTildePrefix && suggestionPath.startsWith(HOME)) {
-          suggestionPath = "~" + suggestionPath.slice(HOME.length);
-        }
-        return c.type === "dir" ? suggestionPath + "/" : suggestionPath;
-      });
-    return matches.slice(0, 8);
-  };
-
-  // Grouped exercise structure
-  const allMissions = getAllMissions({ lsOutput, textOutput, cwd, lastCommand, normalizePath });
-
-  // --- Missions Completion Tracking ---
-  useEffect(() => {
-    setCompletedMissions((prev) => {
-      const copy = new Set(prev);
-      allMissions.forEach((group) => {
-        for (const m of group.missions) {
-          if (copy.has(m.id)) continue;
-          if (m.isComplete()) {
-            const idx = group.missions.findIndex((x) => x.id === m.id);
-            let allPrev = true;
-            for (let i = 0; i < idx; i++) {
-              if (!copy.has(group.missions[i].id)) {
-                allPrev = false;
-                break;
-              }
-            }
-            if (allPrev) {
-              copy.add(m.id);
-            }
-          }
-        }
-      });
-      return copy;
-    });
-  }, [cwd, lsOutput, textOutput, lastCommand, allMissions]);
-
-  // --- Auto-advance on Mission Completion ---
-  // Track previous completed missions for auto-advance logic
-  const prevCompletedRef = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    const currentGroup = allMissions[currentGroupIndex];
-    const finalMission = currentGroup.missions[currentGroup.missions.length - 1];
-    const wasFinalDoneBefore = prevCompletedRef.current.has(finalMission.id);
-    const isFinalDoneNow = completedMissions.has(finalMission.id);
-    // auto-advance only when the final mission has just become complete
-    if (!wasFinalDoneBefore && isFinalDoneNow && currentGroupIndex < allMissions.length - 1) {
-      setCurrentGroupIndex((i) => i + 1);
-    }
-    // update previous state
-    prevCompletedRef.current = new Set(completedMissions);
-  }, [completedMissions, currentGroupIndex, allMissions]);
-
-  // --- Persist Completed Missions ---
-  useEffect(() => {
-    localStorage.setItem("completedMissions", JSON.stringify(Array.from(completedMissions)));
-  }, [completedMissions]);
-
   // --- Auto-expand Tree on CWD Change ---
   useEffect(() => {
     const segments = normalizePath(cwd).slice(1).split("/").filter(Boolean);
@@ -489,6 +354,17 @@ const App: React.FC = () => {
     if (cwd.startsWith("/home/user/")) return "~" + cwd.slice("/home/user".length);
     return cwd;
   };
+
+
+  // --- Missions Hook (business logic) ---
+  const allMissions = getAllMissions({ lsOutput, textOutput, cwd, lastCommand, normalizePath });
+  const {
+    completedMissions,
+    setCompletedMissions,
+    currentGroupIndex,
+    setCurrentGroupIndex,
+    resetMissions,
+  } = useMissions(allMissions);
 
   // --- Render Layout ---
   return (
@@ -515,6 +391,7 @@ const App: React.FC = () => {
             setCompletedMissions={setCompletedMissions}
             currentGroupIndex={currentGroupIndex}
             setCurrentGroupIndex={setCurrentGroupIndex}
+            //resetMissions={resetMissions}
           />
           <ShellPanel
             cwd={cwd}
