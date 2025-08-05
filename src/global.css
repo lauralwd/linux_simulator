@@ -147,6 +147,7 @@ button.primary {
   margin-bottom: 4px;
   position: relative;
   box-shadow: 0 20px 20px rgba(0, 0, 0, 0.12);
+  max-width: 500px;
 }
 
 .input-row {
