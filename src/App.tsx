@@ -8,6 +8,7 @@ import { fileSystem, FSNode } from "./fs";
 import { TreePanel } from "./components/TreePanel";
 import { normalizePath, joinPaths, relativePath } from "./utils/path";
 import { useShell } from "./hooks/useShell";
+import Footer from "./components/footer";
 
 const HOME = "/home/user";
 
@@ -520,12 +521,7 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      <footer>
-        <small>
-          Static client-side demo. No real filesystem access. Designed for teaching <code>cd</code>/
-          <code>pwd</code>/ <code>ls</code>.
-        </small>
-      </footer>
+      <Footer />
     </div>
   );
 };
