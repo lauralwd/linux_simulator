@@ -1,6 +1,6 @@
 import React from "react";
 import { FSNode } from "../fs";
-import { useShell, LsOutput } from "../hooks/useShell";
+
 
 interface ShellPanelProps {
   cwd: string;
@@ -9,18 +9,19 @@ interface ShellPanelProps {
   HOME: string;
   findNodeByPath: (r: FSNode, p: string) => FSNode | null;
   isDirectory: (r: FSNode, p: string) => boolean;
+  input: string;
+  setInput: (s: string) => void;
+  suggestions: string[];
+  handleShellSubmit: (e: React.FormEvent) => void;
+  handleKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  textOutput: string | null;
+  error: string | null;
 }
 
 const ShellPanel: React.FC<ShellPanelProps> = ({
-  cwd, setCwd, fileSystem, HOME, findNodeByPath, isDirectory
+  cwd, setCwd, fileSystem, HOME, findNodeByPath, isDirectory,
+  input, setInput, suggestions, handleShellSubmit, handleKeyDown, textOutput, error
 }) => {
-  const {
-    input, setInput,
-    suggestions,
-    handleShellSubmit,
-    handleKeyDown,
-    lsOutput, textOutput, error
-  } = useShell({ cwd, setCwd, fileSystem, HOME, findNodeByPath, isDirectory });
 
   const getPromptCwd = () => {
     if (cwd === "/home/user") return "~";

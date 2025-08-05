@@ -177,7 +177,14 @@ const App: React.FC = () => {
     findNodeByPath,
     isDirectory,
   });
-  const { lastCommand, lsOutput, textOutput } = shell;
+  const {
+    input, setInput,
+    suggestions,
+    handleShellSubmit,
+    handleKeyDown,
+    lsOutput, textOutput,
+    error, lastCommand,
+  } = shell;
 
   // --- Tree Panel Handlers ---
   const toggleExpand = (p: string) => {
@@ -516,6 +523,13 @@ const App: React.FC = () => {
             HOME={HOME}
             findNodeByPath={findNodeByPath}
             isDirectory={isDirectory}
+            input={input}
+            setInput={setInput}
+            suggestions={suggestions}
+            handleShellSubmit={handleShellSubmit}
+            handleKeyDown={handleKeyDown}
+            textOutput={textOutput}
+            error={error}
           />
 
           <CwdHoverInfo cwd={cwd} hovered={hovered} cdInfo={cdInfo} />
