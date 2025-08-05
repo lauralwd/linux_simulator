@@ -66,6 +66,10 @@ const App: React.FC = () => {
     cut: {
       usage: "cut [-d DELIM] -f LIST <file>...",
       detail: "Select specified fields from each line, splitting on DELIM (default tab). LIST is comma-separated field numbers. Examples: cut -f1,3 file.txt or cut -d ':' -f2 file.txt."
+    },
+    "|": {
+      usage: "command1 | command2",
+      detail: "Pass the output of command1 as input to command2 for efficient data exploration. Supports chaining multiple commands. Example: grep 'pattern' file.txt | wc -l"
     }
   };
 
