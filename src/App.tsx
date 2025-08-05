@@ -1498,7 +1498,7 @@ const App: React.FC = () => {
               </div>
             )}
             {error && <div className="error">{error}</div>}
-            <div className="hint" style={{ marginTop: 8 }}>
+            <div className="hint shell-hint">
               <p style={{ margin: 0 }}>
                 Supported commands:<br />
                 <CommandWithTooltip cmdKey="pwd"><code>pwd</code></CommandWithTooltip><br />
@@ -1510,7 +1510,6 @@ const App: React.FC = () => {
                 <CommandWithTooltip cmdKey="wc"><code>wc [-l|-w|-c] &lt;file&gt;</code></CommandWithTooltip><br />
                 <CommandWithTooltip cmdKey="grep"><code>grep [-i] &lt;pattern&gt; &lt;file&gt;</code></CommandWithTooltip><br />
                 <CommandWithTooltip cmdKey="cut"><code>cut [-d DELIM] -f LIST &lt;file&gt;...</code></CommandWithTooltip><br />
-                <CommandWithTooltip cmdKey="|"><code>command1 | command2 (pipe)</code></CommandWithTooltip><br />
                 <CommandWithTooltip cmdKey="|"><code>command1 | command2 (pipe)</code></CommandWithTooltip><br />
               </p>
             </div>
