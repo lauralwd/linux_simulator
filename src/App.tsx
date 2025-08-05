@@ -1575,7 +1575,9 @@ const App: React.FC = () => {
                 <CommandWithTooltip cmdKey="tail"><code>tail [-n N] &lt;file&gt;</code></CommandWithTooltip><br />
                 <CommandWithTooltip cmdKey="wc"><code>wc [-l|-w|-c] &lt;file&gt;</code></CommandWithTooltip><br />
                 <CommandWithTooltip cmdKey="grep"><code>grep [-i] &lt;pattern&gt; &lt;file&gt;</code></CommandWithTooltip><br />
-                <CommandWithTooltip cmdKey="cut"><code>cut [-d DELIM] -f LIST &lt;file&gt;...</code></CommandWithTooltip>.
+                <CommandWithTooltip cmdKey="cut"><code>cut [-d DELIM] -f LIST &lt;file&gt;...</code></CommandWithTooltip><br />
+                <CommandWithTooltip cmdKey="|"><code>command1 | command2 (pipe)</code></CommandWithTooltip><br />
+                <CommandWithTooltip cmdKey="|"><code>command1 | command2 (pipe)</code></CommandWithTooltip><br />
               </p>
             </div>
           </div>
