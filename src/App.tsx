@@ -1203,6 +1203,12 @@ const App: React.FC = () => {
               Collapse all folders
             </button>
           </div>
+          <div className="hint" style={{ fontSize: "0.8rem", color: "var(--muted)", marginBottom: 8 }}>
+            <strong>Filesystem Tree Navigation:</strong> Use the buttons above to toggle showing hidden files or collapse all folders. The directory tree displays the simulated filesystem, with the highlighted folder representing your current working directory (CWD) — the same directory shown as the output of the <code>pwd</code> command. Click folder names to change directories or click folder icons to expand and collapse them.
+            <br />
+            <br />
+            Keyboard navigation: <kbd>←</kbd> to parent, <kbd>→</kbd> to first child directory, <kbd>↑</kbd>/<kbd>↓</kbd> to navigate siblings.
+          </div>
           <div className="tree-wrapper">
             <DirectoryTree
               root={fileSystem}
@@ -1214,11 +1220,7 @@ const App: React.FC = () => {
               showHidden={showHiddenInTree}
             />
           </div>
-          <div className="hint" style={{ marginTop: 8 }}>
-            <p style={{ margin: 0 }}>
-              Navigation: <kbd>←</kbd> parent, <kbd>→</kbd> first child directory, <kbd>↑</kbd>/<kbd>↓</kbd> among sibling directories. Clicking a directory name sets CWD. Clicking the folder icon toggles collapse/expand.
-            </p>
-          </div>
+
         </div>
 
         <div className="right">
