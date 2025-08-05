@@ -102,6 +102,7 @@ button.primary {
   position: relative;
   max-width: 100%;
   overflow: auto;
+  box-shadow: 0 20px 20px rgba(0, 0, 0, 0.12);
 }
 
 .node-row {
@@ -137,6 +138,7 @@ button.primary {
   border: 1px solid var(--accent);
   margin-bottom: 4px;
   position: relative;
+  box-shadow: 0 20px 20px rgba(0, 0, 0, 0.12);
 }
 
 .input-row {
@@ -191,6 +193,11 @@ button.primary {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  box-shadow: 0 20px 20px rgba(0, 0, 0, 0.12);
+}
+
+.exercise-card {
+  box-shadow: 0 20px 20px rgba(0, 0, 0, 0.12);
 }
 
 .section {
@@ -307,10 +314,6 @@ kbd {
   justify-content: center;
 }
 
-.exercise-card {
-  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(99, 102, 241, 0.5);
-}
 
 @keyframes pop {
   0% { transform: scale(0.8); }
