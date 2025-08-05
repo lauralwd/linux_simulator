@@ -20,7 +20,6 @@ import { useMissions } from "./hooks/useMissions";
 
 const HOME = "/home/user";
 
-
 // --- Filesystem Helpers ---
 const findNodeByPath = (root: FSNode, path: string): FSNode | null => {
   const normalized = normalizePath(path);
@@ -365,6 +364,25 @@ const App: React.FC = () => {
     setCurrentGroupIndex,
     resetMissions,
   } = useMissions(allMissions);
+
+    // Merge newly completed missions into the existing set (never "un-complete" a mission)
+  useEffect(() => {
+    setCompletedMissions((prev) => {
+      const copy = new Set(prev);
+      allMissions.forEach((group) =>
+        group.missions.forEach((mission, idx) => {
+          if (copy.has(mission.id)) return;
+          const allPrevDone = group.missions
+            .slice(0, idx)
+            .every((m) => copy.has(m.id));
+          if (allPrevDone && mission.isComplete()) {
+            copy.add(mission.id);
+          }
+        })
+      );
+      return copy;
+    });
+  }, [allMissions]);
 
   // --- Render Layout ---
   return (

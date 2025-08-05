@@ -21,20 +21,23 @@ export function useMissions(allMissions: MissionGroup[]) {
   // 3. Remember old completed for auto-advance
   const prevRef = useRef<Set<string>>(new Set());
 
-  // Recompute “done” every time any mission’s isComplete() might have flipped
+  // Merge newly completed missions into the existing set (never "un-complete" a mission)
   useEffect(() => {
-    const fresh = new Set<string>();
-    allMissions.forEach((group) =>
-      group.missions.forEach((m, i) => {
-        const allPrevDone = group.missions
-          .slice(0, i)
-          .every((prev) => fresh.has(prev.id));
-        if (allPrevDone && m.isComplete()) {
-          fresh.add(m.id);
-        }
-      })
-    );
-    setCompletedMissions(fresh);
+    setCompletedMissions((prev) => {
+      const copy = new Set(prev);
+      allMissions.forEach((group) =>
+        group.missions.forEach((mission, idx) => {
+          if (copy.has(mission.id)) return;
+          const allPrevDone = group.missions
+            .slice(0, idx)
+            .every((m) => copy.has(m.id));
+          if (allPrevDone && mission.isComplete()) {
+            copy.add(mission.id);
+          }
+        })
+      );
+      return copy;
+    });
   }, [allMissions]);
 
   // Auto-advance to next group when the *last* mission in the current group just became done
