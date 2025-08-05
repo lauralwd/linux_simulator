@@ -1265,7 +1265,11 @@ const App: React.FC = () => {
                   color: "#555"
                 }}
               >
-                Exercises must be completed in order. You can navigate back to earlier groups, but advancing happens only when the final task in the current group is done.
+                Exercises must be completed in order. 
+                You can navigate back to earlier groups, but advancing happens only when the final task in the current group is done.
+                The final exercises are challenging!
+                See if you can figure them out. 
+                You will need all supported commands to finish the all challenges.
               </div>
               {/* Tab buttons */}
               <div style={{ marginTop: 10, marginBottom: 4, display: "flex", gap: 6 }}>
