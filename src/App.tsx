@@ -13,7 +13,7 @@ import Footer from "./components/footer";
 // Filesystem & Data
 import { fileSystem } from "./fs";
 
-// Utilities & Hooks
+// Utilities
 import { normalizePath } from "./utils/path";
 import { useShell } from "./hooks/useShell";
 import { useMissions } from "./hooks/useMissions";
@@ -31,30 +31,30 @@ import {
 const HOME = "/home/user";
 
 const App: React.FC = () => {
-  // Theme (dark/light mode)
+  // --- Theme ---
   const [dark, setDark] = useTheme();
 
-  // Directory tree expansion state
+  // --- Directory Tree State ---
   const { expanded, setExpanded, toggleExpand, collapseAll } = useExpandedTree([
     "/",
     "/home",
     "/home/user",
   ]);
 
-  // Track hovered path in tree and all paths seen
+  // --- Hovered Path State ---
   const [hovered, setHovered] = React.useState<string | null>(null);
   const [hoveredPathsSeen, setHoveredPathsSeen] = useHoveredPathsSeen(hovered);
 
-  // Show/hide hidden files in tree
+  // --- Show Hidden State ---
   const [showHiddenInTree, setShowHiddenInTree] = React.useState<boolean>(false);
+  const [showHiddenOverride, setShowHiddenOverride] = React.useState<boolean>(false);
 
-  // Current working directory state
+  // --- CWD State ---
   const [cwd, setCwdRaw] = React.useState<string>(normalizePath(HOME));
   const expandTilde = useExpandTilde(HOME);
 
-  // Only allow setting cwd to a directory
-  const setCwd: (p: string) => void = React.useCallback(
-    (p) => {
+  const setCwd = React.useCallback(
+    (p: string) => {
       const normalized = normalizePath(p);
       if (isDirectory(fileSystem, normalized)) {
         setCwdRaw(normalized);
@@ -63,10 +63,10 @@ const App: React.FC = () => {
     [setCwdRaw]
   );
 
-  // Auto-expand tree nodes when cwd changes
+  // --- Auto-expand tree on cwd change ---
   useAutoExpandTreeOnCwdChange(cwd, setExpanded);
 
-  // Keyboard navigation for the tree panel
+  // --- Tree Keyboard Navigation Hook ---
   useTreeKeyboardNav({
     cwd,
     setCwd,
@@ -75,7 +75,7 @@ const App: React.FC = () => {
     isDirectory,
   });
 
-  // Shell/terminal logic (input, output, suggestions, etc.)
+  // --- Shell Hook (terminal logic) ---
   const shell = useShell({
     cwd,
     setCwd,
@@ -93,17 +93,17 @@ const App: React.FC = () => {
     error, lastCommand,
   } = shell;
 
-  // Info for "cd" hover tooltips
+  // --- Hover info ---
   const cdInfo = computeCdInfo(hovered, fileSystem, cwd);
 
-  // Format cwd for shell prompt
-  const getPromptCwd = (): string => {
+  // --- Prompt Formatting Helper ---
+  const getPromptCwd = () => {
     if (cwd === "/home/user") return "~";
     if (cwd.startsWith("/home/user/")) return "~" + cwd.slice("/home/user".length);
     return cwd;
   };
 
-  // Missions (progress, completion, navigation)
+  // --- Missions Hook (business logic) ---
   const allMissions = getAllMissions({ lsOutput, textOutput, cwd, lastCommand, normalizePath });
   const {
     completedMissions,
@@ -113,7 +113,7 @@ const App: React.FC = () => {
     resetMissions,
   } = useMissions(allMissions);
 
-  // Layout
+  // --- Render Layout ---
   return (
     <div className="app">
       <Header dark={dark} setDark={setDark} />
