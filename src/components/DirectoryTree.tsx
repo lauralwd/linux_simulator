@@ -12,19 +12,6 @@ type Props = {
   showHidden: boolean;
 };
 
-const findNodeByPath = (root: FSNode, path: string): FSNode | null => {
-  const normalized = normalizePath(path);
-  if (normalized === "/") return root;
-  const segments = normalized.slice(1).split("/").filter(Boolean);
-  let current: FSNode | undefined = root;
-  for (const seg of segments) {
-    if (!current || current.type !== "dir" || !current.children) return null;
-    current = current.children.find((c) => c.name === seg);
-    if (!current) return null;
-  }
-  return current || null;
-};
-
 type NodeProps = {
   node: FSNode;
   parentPath: string;
