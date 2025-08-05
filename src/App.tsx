@@ -97,24 +97,9 @@ const App: React.FC = () => {
           <div
             id={`tooltip-${cmdKey}`}
             role="tooltip"
-            style={{
-              position: "absolute",
-              top: "110%",
-              left: "50%",
-              transform: "translate(-50%, 4px)",
-              backgroundColor: dark ? "#1f2937" : "#fff",
-              color: dark ? "#f5f5f5" : "#111",
-              border: "1px solid rgba(0,0,0,0.15)",
-              padding: 10,
-              borderRadius: 6,
-              boxShadow: "0 6px 20px rgba(0,0,0,0.1)",
-              zIndex: 100,
-              width: 260,
-              fontSize: "0.85em",
-              whiteSpace: "pre-wrap"
-            }}
+            className="command-tooltip"
           >
-            <div style={{ fontWeight: 600, marginBottom: 4 }}>{info.usage}</div>
+            <div className="command-tooltip-title">{info.usage}</div>
             <div>{info.detail}</div>
           </div>
         )}
