@@ -113,72 +113,6 @@ const App: React.FC = () => {
       </span>
     );
   };
-  const SYSTEM_FOLDER_INFO: Record<string, { description: string; advice: string }> = {
-    "/": {
-      description: "Root of the filesystem; contains standard top-level directories like /bin, /etc, /home.",
-      advice: "Novices should mostly explore under /home. Be cautious modifying anything outside your user space."
-    },
-    "/home": {
-      description: "Personal user directories. Typically where users keep their files and projects.",
-      advice: "Safe to explore and create files here. This is the recommended area for novice activity."
-    },
-    "/bin": {
-      description: "Essential user command binaries (e.g., ls, cat, mkdir).",
-      advice: "Useful to view and learn what commands exist; avoid modifying or deleting these."
-    },
-    "/sbin": {
-      description: "System administration binaries (usually requires elevated privileges).",
-      advice: "Novices should generally avoid using or modifying these unless instructed."
-    },
-    "/etc": {
-      description: "Configuration files for the system and services.",
-      advice: "Reading is okay for learning; editing can break system behavior unless you understand the file."
-    },
-    "/usr": {
-      description: "Read-only user utilities and applications, including /usr/bin and /usr/sbin.",
-      advice: "Safe to explore for understanding installed software. Avoid modifying unless advanced."
-    },
-    "/var": {
-      description: "Variable data like logs, mail spools, and caches.",
-      advice: "Examining log files can help debug; do not delete or change contents casually."
-    },
-    "/tmp": {
-      description: "Temporary files storage, cleaned periodically.",
-      advice: "Safe to use and inspect; contents can vanish at any time."
-    },
-    "/dev": {
-      description: "Device nodes representing hardware and pseudo-devices.",
-      advice: "Do not modify; can view to see what devices the system exposes."
-    },
-    "/proc": {
-      description: "Virtual filesystem exposing kernel and process information.",
-      advice: "Safe to explore read-only to learn about system state."
-    },
-    "/root": {
-      description: "Home directory of the superuser (root).",
-      advice: "Not typically needed for regular users; avoid unless performing privileged admin tasks."
-    },
-    "/lib": {
-      description: "Shared libraries needed for program execution.",
-      advice: "Do not modify—breaking these can prevent programs from running."
-    },
-    "/opt": {
-      description: "Optional add-on software packages.",
-      advice: "Usually safe to browse; contents depend on installed third-party tools."
-    },
-    "/boot": {
-      description: "Boot loader and kernel-related files.",
-      advice: "Avoid modifying unless you understand boot mechanics; mistakes can prevent startup."
-    },
-    "/mnt": {
-      description: "Temporary mount points for filesystems.",
-      advice: "Safe to inspect; typically empty unless something is mounted."
-    },
-    "/media": {
-      description: "Mount points for removable media (USB drives, CDs).",
-      advice: "Safe to explore when devices are mounted."
-    }
-  };
 
   const getSystemFolderKey = (path: string): string | null => {
     const norm = normalizePath(path);
@@ -1616,21 +1550,6 @@ const App: React.FC = () => {
                       </>
                     )}
                   </div>
-                  {hovered && (() => {
-                    const sysInfo = getSystemFolderInfo(hovered);
-                    if (!sysInfo) return null;
-                    return (
-                      <div className="subsection" style={{ marginTop: 6 }}>
-                        <div className="label">About this folder:</div>
-                        <div style={{ fontSize: "0.9em" }}>
-                          <div>{sysInfo.description}</div>
-                          <div style={{ marginTop: 4 }}>
-                            <strong>Advice:</strong> {sysInfo.advice}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })()}
                 </>
               ) : (
                 <div className="muted">Hover over a node to see how to cd to it.</div>
