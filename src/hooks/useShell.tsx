@@ -112,10 +112,43 @@ export function useShell(params: {
     setLastCommand(trimmed);
     setHistory((prev) => [...prev, trimmed]);
     setHistoryIndex(null);
-    if (trimmed === "") {
-      setInput("");
-      return;
-    }
+
+
+      // --- Input Validation ---
+  // 1. Disallow empty input (already handled)
+  if (trimmed === "") {
+    setInput("");
+    return;
+  }
+
+  // 2. Disallow unsupported/dangerous characters
+  // (e.g., backticks, semicolons, &&, ||, >, <, $)
+  if (/[`;&|><$]/.test(trimmed.replace(/\|/g, ""))) { // allow pipe for chaining
+    setError("Unsupported or potentially dangerous characters in command.");
+    setInput("");
+    return;
+  }
+
+  // 3. Limit command length
+  if (trimmed.length > 200) {
+    setError("Command too long.");
+    setInput("");
+    return;
+  }
+
+  // 4. Validate command name
+  const allowedCommands = [
+    "cd", "pwd", "ls", "cat", "head", "tail", "wc", "grep", "cut"
+  ];
+  const firstCmd = trimmed.split(/\s+/)[0];
+  if (
+    !allowedCommands.includes(firstCmd) &&
+    !trimmed.includes("|") // allow pipes for chaining
+  ) {
+    setError(`Unknown command: ${firstCmd}. Supported: ${allowedCommands.join(", ")}.`);
+    setInput("");
+    return;
+  }
 
     // Helper to get file content by path (relative to cwd if not absolute), with tilde expansion
 
