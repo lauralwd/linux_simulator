@@ -1171,13 +1171,18 @@ const App: React.FC = () => {
   return (
     <div className="app">
       <header>
-        <h1>Filesystem Visualizer</h1>
+        <h1>Linux Navigation Simulator</h1>
         <div className="controls">
           <button onClick={() => setDark((d) => !d)} aria-label="Toggle dark mode">
             {dark ? "🌞 Light" : "🌙 Dark"}
           </button>
         </div>
       </header>
+        <div>
+          <p style={{ marginTop: 4, color: "var(--muted)" }}>
+            This interactive tool helps beginners explore Linux command line navigation. The directory tree on the left visually represents the filesystem you explore using the terminal on the right. Practice fundamental commands like <code>cd</code>, <code>ls</code>, and <code>pwd</code> to navigate this simulated environment. Real-time feedback and guided exercises support your learning and build confidence for working in real Linux systems.
+          </p>
+        </div>
 
       <div className="panel">
         <div className="left">
