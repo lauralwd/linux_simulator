@@ -109,6 +109,7 @@ button.primary {
   min-height: 400px;
   position: relative;
   max-width: 100%;
+  min-width: 300px;
   overflow: auto;
   box-shadow: 0 20px 20px rgba(0, 0, 0, 0.12);
 }
@@ -147,7 +148,7 @@ button.primary {
   margin-bottom: 4px;
   position: relative;
   box-shadow: 0 20px 20px rgba(0, 0, 0, 0.12);
-  max-width: 500px;
+  width: 100%;
 }
 
 .input-row {
@@ -228,6 +229,9 @@ button.primary {
   overflow-x: auto;
   margin: 0;
   border: 1px solid rgba(0,0,0,0.1);
+  min-width: 400px;
+  max-width: 600px;
+  box-sizing: border-box;
 }
 
 .subsection {

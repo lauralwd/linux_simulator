@@ -26,6 +26,12 @@ export const TreePanel: React.FC<TreePanelProps> = ({
   setShowHiddenInTree,
 }) => (
   <div className="left">
+        <div className="hint tree-hint">
+      <strong>Filesystem Tree Navigation:</strong> The directory tree displays the simulated filesystem, with the highlighted folder representing your current working directory (CWD) — the same directory shown as the output of the <code>pwd</code> command. Click folder names to change directories or click folder icons to expand and collapse them. Use the buttons above to toggle showing hidden files or collapse all folders.
+      <br />
+      <br />
+      Keyboard navigation: <kbd>←</kbd> to parent, <kbd>→</kbd> to first child directory, <kbd>↑</kbd>/<kbd>↓</kbd> to navigate siblings.
+    </div>
     <div className="tree-controls" style={{ marginBottom: 8 }}>
       <button
         onClick={() => setShowHiddenInTree(!showHiddenInTree)}
@@ -42,12 +48,6 @@ export const TreePanel: React.FC<TreePanelProps> = ({
       >
         Collapse all folders
       </button>
-    </div>
-    <div className="hint tree-hint">
-      <strong>Filesystem Tree Navigation:</strong> The directory tree displays the simulated filesystem, with the highlighted folder representing your current working directory (CWD) — the same directory shown as the output of the <code>pwd</code> command. Click folder names to change directories or click folder icons to expand and collapse them. Use the buttons above to toggle showing hidden files or collapse all folders.
-      <br />
-      <br />
-      Keyboard navigation: <kbd>←</kbd> to parent, <kbd>→</kbd> to first child directory, <kbd>↑</kbd>/<kbd>↓</kbd> to navigate siblings.
     </div>
     <div className="tree-wrapper">
       <DirectoryTree
