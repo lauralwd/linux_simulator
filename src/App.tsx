@@ -1,19 +1,26 @@
-import ShellPanel from "./components/shell_panel";
+// React & Hooks
 import React, { useState, useEffect, useCallback, useRef } from "react";
+
+// Components
+import ShellPanel from "./components/shell_panel";
 import Header from "./components/header";
 import CwdHoverInfo from "./components/cwd_hover_info";
 import { getAllMissions } from "./components/Missions";
 import Exercises from "./components/Exercises";
-import { fileSystem, FSNode } from "./fs";
 import { TreePanel } from "./components/TreePanel";
+import Footer from "./components/footer";
+
+// Filesystem & Data
+import { fileSystem, FSNode } from "./fs";
+
+// Utilities
 import { normalizePath, joinPaths, relativePath } from "./utils/path";
 import { useShell } from "./hooks/useShell";
-import Footer from "./components/footer";
 
 const HOME = "/home/user";
 
 
-
+// --- Filesystem Helpers ---
 const findNodeByPath = (root: FSNode, path: string): FSNode | null => {
   const normalized = normalizePath(path);
   if (normalized === "/") return root;
@@ -27,6 +34,7 @@ const findNodeByPath = (root: FSNode, path: string): FSNode | null => {
   return current || null;
 };
 
+// Check if path refers to a directory
 const isDirectory = (root: FSNode, path: string): boolean => {
   const node = findNodeByPath(root, path);
   return node?.type === "dir";
@@ -42,6 +50,8 @@ type LsOutput = {
 };
 
 const App: React.FC = () => {
+  // --- Application State ---
+  // User & Theme
   const TOOLTIP_DATA: Record<string, { usage: string; detail: string }> = {
     cd: { usage: "cd <path>", detail: "Change working directory to <path>. Without argument returns to home." },
     pwd: { usage: "pwd", detail: "Print the current working directory." },
@@ -111,46 +121,23 @@ const App: React.FC = () => {
     );
   };
 
-
-  const getSystemFolderKey = (path: string): string | null => {
-    const norm = normalizePath(path);
-    const keys = ["/", "/home", "/bin", "/sbin", "/etc", "/usr", "/var", "/tmp", "/dev", "/proc", "/root", "/lib", "/opt", "/boot", "/mnt", "/media"];
-    for (const key of keys) {
-      if (norm === key || norm.startsWith(key + "/")) return key;
-    }
-    return null;
-  };
-
-  const getSystemFolderInfo = (path: string) => {
-    const key = getSystemFolderKey(path);
-    if (!key) return null;
-    return SYSTEM_FOLDER_INFO[key];
-  };
-
   const expandTilde = (p: string) => {
     if (p === "~") return HOME;
     if (p.startsWith("~/")) return HOME + p.slice(1);
     return p;
   };
 
+  // Directory Tree
   const [cwd, setCwdRaw] = useState<string>(normalizePath(HOME));
-  const [hovered, setHovered] = useState<string | null>(null);
-  const [dark, setDark] = useState<boolean>(() => {
-    const stored = localStorage.getItem("theme");
-    if (stored === "dark") return true;
-    if (stored === "light") return false;
-    return window.matchMedia?.("(prefers-color-scheme: dark)")?.matches ?? false;
-  });
   const [expanded, setExpanded] = useState<Set<string>>(() => {
     return new Set([normalizePath("/"), normalizePath("/home"), normalizePath("/home/user")]);
   });
-
-
+  const [hovered, setHovered] = useState<string | null>(null);
   const [hoveredPathsSeen, setHoveredPathsSeen] = useState<Set<string>>(new Set());
-
-  const [showHiddenOverride, setShowHiddenOverride] = useState<boolean>(false);
   const [showHiddenInTree, setShowHiddenInTree] = useState<boolean>(false);
+  const [showHiddenOverride, setShowHiddenOverride] = useState<boolean>(false);
 
+  // Missions
   const [completedMissions, setCompletedMissions] = useState<Set<string>>(() => {
     try {
       const stored = localStorage.getItem("completedMissions");
@@ -160,6 +147,15 @@ const App: React.FC = () => {
       }
     } catch {}
     return new Set();
+  });
+  const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
+
+  // User & Theme
+  const [dark, setDark] = useState<boolean>(() => {
+    const stored = localStorage.getItem("theme");
+    if (stored === "dark") return true;
+    if (stored === "light") return false;
+    return window.matchMedia?.("(prefers-color-scheme: dark)")?.matches ?? false;
   });
 
   const setCwd = useCallback(
@@ -172,6 +168,7 @@ const App: React.FC = () => {
     [setCwdRaw]
   );
 
+  // --- Shell Hook (terminal logic) ---
   const shell = useShell({
     cwd,
     setCwd,
@@ -182,6 +179,7 @@ const App: React.FC = () => {
   });
   const { lastCommand, lsOutput, textOutput } = shell;
 
+  // --- Tree Panel Handlers ---
   const toggleExpand = (p: string) => {
     setExpanded((prev) => {
       const copy = new Set(prev);
@@ -196,7 +194,7 @@ const App: React.FC = () => {
     setExpanded(new Set([normalizePath("/")]));
   };
 
-  // Arrow-key navigation
+  // --- Keyboard Navigation (arrow keys) ---
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // if focus is in input/textarea or the shell input, don't intercept arrow keys (allow editing)
@@ -248,7 +246,7 @@ const App: React.FC = () => {
     return () => window.removeEventListener("keydown", onKey);
   }, [cwd, setCwd]);
 
-  // Theme persistence
+  // --- Theme Persistence ---
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
     localStorage.setItem("theme", dark ? "dark" : "light");
@@ -293,15 +291,15 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-  if (hovered) {
-    setHoveredPathsSeen((prev) => {
-      if (prev.has(hovered)) return prev;
-      const copy = new Set(prev);
-      copy.add(hovered);
-      return copy;
-    });
-  }
-}, [hovered]);
+    if (hovered) {
+      setHoveredPathsSeen((prev) => {
+        if (prev.has(hovered)) return prev;
+        const copy = new Set(prev);
+        copy.add(hovered);
+        return copy;
+      });
+    }
+  }, [hovered]);
 
   const getFileContent = (raw: string): { path: string; content: string } | null => {
     let target: string;
@@ -414,11 +412,10 @@ const App: React.FC = () => {
     return matches.slice(0, 8);
   };
 
-    // Grouped exercise structure
+  // Grouped exercise structure
   const allMissions = getAllMissions({ lsOutput, textOutput, cwd, lastCommand, normalizePath });
 
-  const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
-
+  // --- Missions Completion Tracking ---
   useEffect(() => {
     setCompletedMissions((prev) => {
       const copy = new Set(prev);
@@ -444,9 +441,9 @@ const App: React.FC = () => {
     });
   }, [cwd, lsOutput, textOutput, lastCommand, allMissions]);
 
+  // --- Auto-advance on Mission Completion ---
   // Track previous completed missions for auto-advance logic
   const prevCompletedRef = useRef<Set<string>>(new Set());
-
   useEffect(() => {
     const currentGroup = allMissions[currentGroupIndex];
     const finalMission = currentGroup.missions[currentGroup.missions.length - 1];
@@ -460,10 +457,12 @@ const App: React.FC = () => {
     prevCompletedRef.current = new Set(completedMissions);
   }, [completedMissions, currentGroupIndex, allMissions]);
 
+  // --- Persist Completed Missions ---
   useEffect(() => {
     localStorage.setItem("completedMissions", JSON.stringify(Array.from(completedMissions)));
   }, [completedMissions]);
 
+  // --- Auto-expand Tree on CWD Change ---
   useEffect(() => {
     const segments = normalizePath(cwd).slice(1).split("/").filter(Boolean);
     setExpanded((prev) => {
@@ -477,11 +476,14 @@ const App: React.FC = () => {
     });
   }, [cwd]);
 
+  // --- Prompt Formatting Helper ---
   const getPromptCwd = () => {
     if (cwd === "/home/user") return "~";
     if (cwd.startsWith("/home/user/")) return "~" + cwd.slice("/home/user".length);
     return cwd;
   };
+
+  // --- Render Layout ---
   return (
     <div className="app">
       <Header dark={dark} setDark={setDark} />
