@@ -6,6 +6,55 @@ export type FSNode = {
   size?: number; // Size in bytes
 };
 
+export type LsOutput = {
+  path: string;
+  entries: { name: string; type: "dir" | "file"; size?: number }[];
+  showAll: boolean;
+  long: boolean;
+  human: boolean;
+  blocks: boolean;
+};
+
+// Calculate size of a file or directory entry (not recursive for directories)
+export function calculateSize(node: FSNode): number {
+  if (node.type === "file") {
+    return node.size || node.content?.length || 0;
+  }
+  // For directories, return typical directory block size (4KB)
+  return 4096;
+}
+
+// Calculate total size of directory contents (recursive) - for du command
+export function calculateDirectoryContentSize(node: FSNode): number {
+  if (node.type === "file") {
+    return node.size || node.content?.length || 0;
+  }
+  // For directories, sum all children recursively
+  return (node.children || []).reduce((total, child) => 
+    total + calculateDirectoryContentSize(child), 0
+  );
+}
+
+// Format size for display
+export function formatSize(bytes: number, human: boolean): string {
+  if (!human) {
+    // Show in 1K blocks (like real ls -s)
+    return Math.ceil(bytes / 1024).toString();
+  }
+  
+  // Human readable format
+  const units = ['B', 'K', 'M', 'G'];
+  let size = bytes;
+  let unitIndex = 0;
+  
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex++;
+  }
+  
+  return `${Math.round(size * 10) / 10}${units[unitIndex]}`;
+}
+
 // Simulated filesystem
 export const fileSystem: FSNode = {
   name: "",
