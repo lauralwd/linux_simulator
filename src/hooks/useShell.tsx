@@ -542,14 +542,28 @@ export function useShell(params: {
     if (e.key === "Tab") {
       e.preventDefault();
       if (suggestions.length) {
-        // pick first suggestion
         const s = suggestions[0];
-        const parts = input.trim().split(/\s+/);
-        const cmd = parts[0] || "";
-        const newVal = `${cmd} ${s}${s.endsWith("/") ? "" : " "}`;
-        setInput(newVal);
+        const trimmedInput = input.trim();
+        
+        // Find what we're trying to complete (the last "word" that's being completed)
+        const tokens = trimmedInput.split(/\s+/);
+        const stages = trimmedInput.split("|");
+        const lastStage = stages[stages.length - 1].trimStart();
+        const stageTokens = lastStage.split(/\s+/).filter(Boolean);
+        
+        // Replace only the last token being completed
+        if (stageTokens.length > 0) {
+          const allButLast = stageTokens.slice(0, -1);
+          const prefix = stages.length > 1 ? 
+            stages.slice(0, -1).join("|") + "|" + allButLast.join(" ") :
+            allButLast.join(" ");
+          
+          const newVal = prefix + (prefix ? " " : "") + s + (s.endsWith("/") ? "" : " ");
+          setInput(newVal);
+        }
         setSuggestions([]);
       }
+    }
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setHistoryIndex((prev) => {
