@@ -88,13 +88,29 @@ export function useShell(params: {
       }
       let entries = node.children
         .filter((c) => showAll || !c.name.startsWith("."))
-        .map((c) => ({ name: c.name, type: c.type }))
+        .map((c) => ({ 
+          name: c.name, 
+          type: c.type,
+          size: calculateSize(c)
+        }))
         .sort((a, b) => {
           if (a.type !== b.type) return a.type === "dir" ? -1 : 1;
           return a.name.localeCompare(b.name);
         });
       result.ls = { path: targetPath, entries, showAll, long: longFormat, human, blocks };
-      result.text = entries.map((e) => (e.type === "dir" ? e.name + "/" : e.name)).join("\n");
+      
+      // Update text output to include sizes when requested
+      if (blocks || longFormat) {
+        result.text = entries.map((e) => {
+          let sizeStr = "";
+          if (blocks && e.size !== undefined) {
+            sizeStr = formatSize(e.size, human) + " ";
+          }
+          return sizeStr + (e.type === "dir" ? e.name + "/" : e.name);
+        }).join("\n");
+      } else {
+        result.text = entries.map((e) => (e.type === "dir" ? e.name + "/" : e.name)).join("\n");
+      }
       return result;
     } else if (cmd === "cat") {
       if (parts.length >= 2) {
