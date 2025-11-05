@@ -3,6 +3,7 @@ export type FSNode = {
   type: "dir" | "file";
   children?: FSNode[]; // only for dirs
   content?: string;
+  size?: number; // Size in bytes
 };
 
 // Simulated filesystem
@@ -14,22 +15,22 @@ export const fileSystem: FSNode = {
       name: "bin",
       type: "dir",
       children: [
-        { name: "bash", type: "file" },
-        { name: "ls", type: "file" },
-        { name: "cat", type: "file" },
-        { name: "echo", type: "file" }
+        { name: "bash", type: "file", size: 1024 * 1024 }, // 1MB
+        { name: "ls", type: "file", size: 128 * 1024 }, // 128KB
+        { name: "cat", type: "file", size: 64 * 1024 }, // 64KB
+        { name: "echo", type: "file", size: 32 * 1024 } // 32KB
       ]
     },
     {
       name: "etc",
       type: "dir",
       children: [
-        { name: "hosts", type: "file" },
-        { name: "passwd", type: "file" },
+        { name: "hosts", type: "file", size: 1024 }, // 1KB
+        { name: "passwd", type: "file", size: 2048 }, // 2KB
         {
           name: "nginx",
           type: "dir",
-          children: [{ name: "nginx.conf", type: "file" }]
+          children: [{ name: "nginx.conf", type: "file", size: 4096 }] // 4KB
         }
       ]
     },
@@ -41,8 +42,8 @@ export const fileSystem: FSNode = {
           name: "bin",
           type: "dir",
           children: [
-            { name: "python", type: "file" },
-            { name: "node", type: "file" }
+            { name: "python", type: "file", size: 16 * 1024 * 1024 }, // 16MB
+            { name: "node", type: "file", size: 48 * 1024 * 1024 } // 48MB
           ]
         },
         {
@@ -59,7 +60,7 @@ export const fileSystem: FSNode = {
         {
           name: "log",
           type: "dir",
-          children: [{ name: "syslog", type: "file" }]
+          children: [{ name: "syslog", type: "file", size: 256 * 1024 }] // 256KB
         },
         {
           name: "tmp",
@@ -89,13 +90,13 @@ export const fileSystem: FSNode = {
                   name: "Thesis",
                   type: "dir",
                   children: [
-                    { name: "chapter1.md", type: "file", content: `# Chapter 1: Introduction
+                    { name: "chapter1.md", type: "file", size: 2048, content: `# Chapter 1: Introduction
 
 This is the introduction to the thesis. It explains the problem and motivation.
 
 - Point one
 - Point two` },
-                    { name: "chapter2.md", type: "file", content: `# Chapter 2: Methods
+                    { name: "chapter2.md", type: "file", size: 1536, content: `# Chapter 2: Methods
 
 This section describes the methods used in the study.
 
@@ -106,19 +107,19 @@ This section describes the methods used in the study.
                 {
                   name: "Notes",
                   type: "dir",
-                  children: [{ name: "meeting.txt", type: "file" }]
+                  children: [{ name: "meeting.txt", type: "file", size: 512 }]
                 },
                 {
                   name: "Research",
                   type: "dir",
                   children: [
-                    { name: "example.fasta", type: "file", content: `>seq1
+                    { name: "example.fasta", type: "file", size: 1024, content: `>seq1
 ATGCGTACGTAGCTAGCTAGCTAGCTAGCTAGC
 >seq2
 GCTAGCTAGCTGACTGACTGACGATCGATCGTA
 >seq3
 TTGACGATCGATCGATCGATCGATCGATCGTAGCTA` },
-                    { name: "variants.vcf", type: "file", content: `##fileformat=VCFv4.2
+                    { name: "variants.vcf", type: "file", size: 2560, content: `##fileformat=VCFv4.2
 ##source=simulated
 #CHROM  POS     ID      REF     ALT     QUAL    FILTER  INFO
 chr1    123456  .       A       G       60      PASS    DP=100
@@ -135,7 +136,7 @@ chr2    234567  rs555   T       C       50      PASS    DP=80` }
                   name: "webapp",
                   type: "dir",
                   children: [
-                    { name: "index.html", type: "file", content: `<!doctype html>
+                    { name: "index.html", type: "file", size: 1024, content: `<!doctype html>
 <html>
 <head><title>Example Webapp</title></head>
 <body>
@@ -143,7 +144,7 @@ chr2    234567  rs555   T       C       50      PASS    DP=80` }
   <div id="root"></div>
 </body>
 </html>` },
-                    { name: "app.tsx", type: "file", content: `import React from 'react';
+                    { name: "app.tsx", type: "file", size: 2048, content: `import React from 'react';
 import ReactDOM from 'react-dom/client';
 
 const App = () => <div>Hello from Webapp!</div>;
@@ -159,6 +160,7 @@ root.render(<App />);` }
                     {
                       name: "data.csv",
                       type: "file",
+                      size: 512,
                       content: `id,value
 1,10
 2,15
@@ -171,14 +173,14 @@ root.render(<App />);` }
             {
               name: "Pictures",
               type: "dir",
-              children: [{ name: "vacation.jpg", type: "file" }]
+              children: [{ name: "vacation.jpg", type: "file", size: 3 * 1024 * 1024 }] // 3MB
             },
             {
               name: "Downloads",
               type: "dir",
               children: [
-                { name: "installer.sh", type: "file" },
-                { name: "gene_annotations.tsv", type: "file", content: `gene_id	description
+                { name: "installer.sh", type: "file", size: 8192 }, // 8KB
+                { name: "gene_annotations.tsv", type: "file", size: 15360, content: `gene_id	description
 
 gene001	Protein kinase involved in cell cycle regulation
 gene002	Serine/threonine kinase in signal transduction
@@ -292,9 +294,9 @@ gene100	Gene expression modulator` }
               type: "dir",
               children: []
             },
-            { name: ".bashrc", type: "file" },
-            { name: ".profile", type: "file" },
-            { name: "README.txt", type: "file", content: `This is the user README for the filesystem visualizer. Use commands like ls, cd, cat, head, tail, wc, and grep to explore.` },
+            { name: ".bashrc", type: "file", size: 1024 },
+            { name: ".profile", type: "file", size: 512 },
+            { name: "README.txt", type: "file", size: 1280, content: `This is the user README for the filesystem visualizer. Use commands like ls, cd, cat, head, tail, wc, and grep to explore.` },
             {
               name: "Examples",
               type: "dir",
@@ -302,6 +304,7 @@ gene100	Gene expression modulator` }
                 {
                   name: "grocery.txt",
                   type: "file",
+                  size: 256,
                   content: `Milk
 Eggs
 Bread
@@ -311,6 +314,7 @@ Chicken`
                 {
                   name: "expenses.csv",
                   type: "file",
+                  size: 1024,
                   content: `Date,Category,Amount
 2025-07-01,Groceries,45.67
 2025-07-03,Transport,12.50
@@ -329,8 +333,8 @@ Chicken`
               name: "Desktop",
               type: "dir",
               children: [
-                { name: "welcome.txt", type: "file" },
-                { name: "setup_notes.md", type: "file" }
+                { name: "welcome.txt", type: "file", size: 256 },
+                { name: "setup_notes.md", type: "file", size: 2048 }
               ]
             },
             {
@@ -341,16 +345,17 @@ Chicken`
                   name: "Research",
                   type: "dir",
                   children: [
-                    { name: "paper1.pdf", type: "file" },
-                    { name: "paper2.pdf", type: "file" },
+                    { name: "paper1.pdf", type: "file", size: 2 * 1024 * 1024 }, // 2MB
+                    { name: "paper2.pdf", type: "file", size: 1.5 * 1024 * 1024 }, // 1.5MB
                     {
                       name: "Data",
                       type: "dir",
                       children: [
-                        { name: "experiment_results.csv", type: "file" },
+                        { name: "experiment_results.csv", type: "file", size: 32 * 1024 }, // 32KB
                         {
                           name: "sample_metadata.tsv",
                           type: "file",
+                          size: 512,
                           content: `sample_id	condition	replicate
 s1	control	1
 s2	treated	1
@@ -365,12 +370,12 @@ s4	treated	2`
                   name: "Tutorials",
                   type: "dir",
                   children: [
-                    { name: "react_hooks.md", type: "file" },
-                    { name: "filesystem_visualizer.md", type: "file" }
+                    { name: "react_hooks.md", type: "file", size: 4096 },
+                    { name: "filesystem_visualizer.md", type: "file", size: 6144 }
                   ]
                 },
-                { name: "todo.txt", type: "file" },
-                { name: "journal.md", type: "file" }
+                { name: "todo.txt", type: "file", size: 256 },
+                { name: "journal.md", type: "file", size: 8192 }
               ]
             },
             {
@@ -381,11 +386,12 @@ s4	treated	2`
                   name: "genomics",
                   type: "dir",
                   children: [
-                    { name: "pipeline.sh", type: "file" },
-                    { name: "README.md", type: "file" },
+                    { name: "pipeline.sh", type: "file", size: 4096 },
+                    { name: "README.md", type: "file", size: 2048 },
                     {
                       name: "pipeline.log",
                       type: "file",
+                      size: 1536,
                       content: `[2025-07-20 10:00:00] INFO Starting pipeline
 [2025-07-20 10:01:00] WARNING Low memory
 [2025-07-20 10:02:00] ERROR Failed to fetch reference genome
@@ -401,16 +407,16 @@ s4	treated	2`
                   name: "visualizer",
                   type: "dir",
                   children: [
-                    { name: "index.html", type: "file" },
-                    { name: "app.tsx", type: "file" }
+                    { name: "index.html", type: "file", size: 2048 },
+                    { name: "app.tsx", type: "file", size: 8192 }
                   ]
                 },
                 {
                   name: "blog",
                   type: "dir",
                   children: [
-                    { name: "2025-07-01-intro.md", type: "file" },
-                    { name: "2025-07-15-update.md", type: "file" }
+                    { name: "2025-07-01-intro.md", type: "file", size: 2048 },
+                    { name: "2025-07-15-update.md", type: "file", size: 3072 }
                   ]
                 }
               ]
@@ -419,8 +425,8 @@ s4	treated	2`
               name: "Pictures",
               type: "dir",
               children: [
-                { name: "conference.jpg", type: "file" },
-                { name: "family.png", type: "file" }
+                { name: "conference.jpg", type: "file", size: 2.5 * 1024 * 1024 }, // 2.5MB
+                { name: "family.png", type: "file", size: 1.8 * 1024 * 1024 } // 1.8MB
               ]
             },
             {
@@ -431,8 +437,8 @@ s4	treated	2`
                   name: "favorites",
                   type: "dir",
                   children: [
-                    { name: "song1.mp3", type: "file" },
-                    { name: "song2.mp3", type: "file" }
+                    { name: "song1.mp3", type: "file", size: 3.5 * 1024 * 1024 }, // 3.5MB
+                    { name: "song2.mp3", type: "file", size: 4.2 * 1024 * 1024 } // 4.2MB
                   ]
                 }
               ]
@@ -441,29 +447,29 @@ s4	treated	2`
               name: "Downloads",
               type: "dir",
               children: [
-                { name: "dataset.zip", type: "file" },
-                { name: "script_runner.py", type: "file" }
+                { name: "dataset.zip", type: "file", size: 25 * 1024 * 1024 }, // 25MB
+                { name: "script_runner.py", type: "file", size: 3072 }
               ]
             },
             {
               name: "Scripts",
               type: "dir",
               children: [
-                { name: "deploy.sh", type: "file" },
-                { name: "cleanup.py", type: "file" }
+                { name: "deploy.sh", type: "file", size: 1024 },
+                { name: "cleanup.py", type: "file", size: 2048 }
               ]
             },
             {
               name: "Config",
               type: "dir",
               children: [
-                { name: "settings.json", type: "file" },
+                { name: "settings.json", type: "file", size: 1024 },
                 {
                   name: "themes",
                   type: "dir",
                   children: [
-                    { name: "dark.json", type: "file" },
-                    { name: "light.json", type: "file" }
+                    { name: "dark.json", type: "file", size: 512 },
+                    { name: "light.json", type: "file", size: 512 }
                   ]
                 }
               ]
@@ -471,14 +477,14 @@ s4	treated	2`
             {
               name: ".config",
               type: "dir",
-              children: [{ name: "app.conf", type: "file" }]
+              children: [{ name: "app.conf", type: "file", size: 256 }]
             },
-            { name: ".bashrc", type: "file" },
-            { name: ".zshrc", type: "file" },
-            { name: ".gitconfig", type: "file" },
-            { name: "recipes.md", type: "file" },
-            { name: "budget.xlsx", type: "file" },
-            { name: "archive.tar.gz", type: "file" }
+            { name: ".bashrc", type: "file", size: 1024 },
+            { name: ".zshrc", type: "file", size: 1536 },
+            { name: ".gitconfig", type: "file", size: 512 },
+            { name: "recipes.md", type: "file", size: 4096 },
+            { name: "budget.xlsx", type: "file", size: 64 * 1024 }, // 64KB
+            { name: "archive.tar.gz", type: "file", size: 128 * 1024 * 1024 } // 128MB
           ]
         }
       ]
