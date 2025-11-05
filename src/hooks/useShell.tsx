@@ -445,7 +445,7 @@ export function useShell(params: {
 
     // 2. Disallow unsupported/dangerous characters
     // (e.g., backticks, semicolons, &&, ||, >, <, $)
-    if (/[`;&|><$]/.test(trimmed.replace(/\|/g, ""))) { // allow pipe for chaining
+    if (/[`;&<$]/.test(trimmed.replace(/\|/g, ""))) { // allow pipe for chaining
       setError("Unsupported or potentially dangerous characters in command.");
       setInput("");
       return;
