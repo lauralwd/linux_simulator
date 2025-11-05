@@ -50,6 +50,23 @@ export function useShell(params: {
       .map(child => child.name);
   };
 
+  // Helper function to format ls output with proper alignment
+  const formatLsOutput = (entries: Array<{ name: string; type: "dir" | "file"; size?: number }>, blocks: boolean, human: boolean): string => {
+    if (!blocks) {
+      return entries.map((e) => (e.type === "dir" ? e.name + "/" : e.name)).join("\n");
+    }
+
+    // Calculate the maximum width needed for size display
+    const sizeStrings = entries.map(e => e.size !== undefined ? formatSize(e.size, human) : "0");
+    const maxSizeWidth = Math.max(...sizeStrings.map(s => s.length));
+
+    return entries.map((e, index) => {
+      const sizeStr = sizeStrings[index].padStart(maxSizeWidth);
+      const fileName = e.type === "dir" ? e.name + "/" : e.name;
+      return `${sizeStr} ${fileName}`;
+    }).join("\n");
+  };
+
   // 5. Command Execution Logic
   const runSingle = (
     raw: string,
@@ -134,18 +151,8 @@ export function useShell(params: {
           
           result.ls = { path: basePath, entries: filteredEntries, showAll, long: longFormat, human, blocks };
           
-          // Update text output to include sizes when requested
-          if (blocks || longFormat) {
-            result.text = filteredEntries.map((e) => {
-              let sizeStr = "";
-              if (blocks && e.size !== undefined) {
-                sizeStr = formatSize(e.size, human) + " ";
-              }
-              return sizeStr + (e.type === "dir" ? e.name + "/" : e.name);
-            }).join("\n");
-          } else {
-            result.text = filteredEntries.map((e) => (e.type === "dir" ? e.name + "/" : e.name)).join("\n");
-          }
+          // Use the new formatting function for aligned output
+          result.text = formatLsOutput(filteredEntries, blocks || longFormat, human);
           return result;
         } else {
           // Regular path (no wildcards)
@@ -176,18 +183,8 @@ export function useShell(params: {
         });
       result.ls = { path: targetPath, entries, showAll, long: longFormat, human, blocks };
       
-      // Update text output to include sizes when requested
-      if (blocks || longFormat) {
-        result.text = entries.map((e) => {
-          let sizeStr = "";
-          if (blocks && e.size !== undefined) {
-            sizeStr = formatSize(e.size, human) + " ";
-          }
-          return sizeStr + (e.type === "dir" ? e.name + "/" : e.name);
-        }).join("\n");
-      } else {
-        result.text = entries.map((e) => (e.type === "dir" ? e.name + "/" : e.name)).join("\n");
-      }
+      // Use the new formatting function for aligned output
+      result.text = formatLsOutput(entries, blocks || longFormat, human);
       return result;
     } else if (cmd === "cat") {
       if (parts.length >= 2) {
