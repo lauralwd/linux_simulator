@@ -55,9 +55,9 @@ Linux Navigation Simulator is an interactive web-based tool for learning and pra
 
 3. **Start local development server:**
    ```sh
-   npm start
+   npm run dev
    # or
-   yarn start
+   yarn run dev
    ```
 
 4. **Build for GitHub Pages deployment:**
@@ -83,9 +83,9 @@ MIT
 
 ## Demo
 
-_Deployed version and example screenshots will go here_
+Hosted online here [lauralwd.github.io/linux_simulator/](https://lauralwd.github.io/linux_simulator/)
 
 ## Contact & Contributions
 
 Pull requests, issues, and suggestions welcome!  
-Created by Laura Dijkhuizen for life science teaching at Utrecht University.
+Created by Laura Dijkhuizen for Linux & HPC for life sciences teaching at Utrecht University.
