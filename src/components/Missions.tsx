@@ -231,12 +231,21 @@ export function getAllMissions({
             if (!textOutput) return false;
             if (!lastCommand) return false;
             const out = textOutput.trim();
+            
+            // Check if output is a number
             if (!/^\d+$/.test(out)) return false;
+            
             const lc = lastCommand.toLowerCase();
-            if (!lc.includes(".html")) return false;
+            
+            // Must mention html somewhere
+            if (!lc.includes("html")) return false;
+            
+            // Must NOT use wc command  
+            if (lc.includes("wc")) return false;
+            
             return true;
           },
-        },
+        },        
       ],
     },
   ];
