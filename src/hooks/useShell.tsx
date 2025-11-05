@@ -563,7 +563,6 @@ export function useShell(params: {
         }
         setSuggestions([]);
       }
-    }
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setHistoryIndex((prev) => {
