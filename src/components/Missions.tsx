@@ -121,12 +121,10 @@ export function getAllMissions({
         {
           id: "thesis-sizes",
           description:
-            "List items in Thesis directory with human-readable sizes and block counts using ls -lhs",
+            "List items in Thesis directory with human-readable sizes",
           isComplete: () =>
             lsOutput?.path === "/home/user/Documents/Thesis" &&
-            lsOutput?.long &&
-            lsOutput?.human &&
-            lsOutput?.blocks,
+            lsOutput?.human
         },
         {
           id: "sample-id-condition",
