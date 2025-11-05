@@ -1,19 +1,10 @@
 // 1. Imports & Types
 import { useState, useEffect } from "react";
-import { FSNode } from "../fs";
+import { FSNode, LsOutput, calculateSize, formatSize } from "../fs";
 import { normalizePath, joinPaths, relativePath } from "../utils/path";
 import { expandTilde } from "../utils/path";
 import { getFileContentLocal } from "../utils/fs";
 import { getPathCompletions } from "../utils/completion";
-
-export type LsOutput = {
-  path: string;
-  entries: { name: string; type: "dir" | "file" }[];
-  showAll: boolean;
-  long: boolean;
-  human: boolean;
-  blocks: boolean;
-};
 
 export function useShell(params: {
   cwd: string;
