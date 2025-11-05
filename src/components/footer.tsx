@@ -8,7 +8,7 @@ const Footer: React.FC = () => (
       It complements the “Linux and HPC Basics for Researchers” course, providing hands-on practice in a safe, client-side environment.<br />
       The tool emphasizes core commands such as <code>cd</code>, <code>ls</code>, and <code>pwd</code>, supporting beginners in building confidence before working on real HPC systems.<br />
       <br />
-      Source code and contributions available on <a href="https://github.com/your-github-repo" target="_blank" rel="noopener noreferrer">GitHub</a>.
+      Source code and contributions available on <a href="https://github.com/lauralwd/linux_simulator" target="_blank" rel="noopener noreferrer">GitHub</a>.
     </small>
   </footer>
 );
