@@ -150,7 +150,14 @@ export function useShell(params: {
       let contentSource: string | null = null;
       if (parts.length > idx) {
         const raw = parts.slice(idx).join(" ");
-        const file = getFileContentLocal(raw);
+        const file = getFileContentLocal(
+          raw,
+          cwd,
+          HOME,
+          findNodeByPath,
+          fileSystem,
+          (p) => expandTilde(p, HOME)
+        );
         if (!file) {
           result.error = `${cmd}: ${raw}: No such file`;
           return result;
@@ -210,7 +217,14 @@ export function useShell(params: {
         }
       } else {
         for (const raw of files) {
-          const file = getFileContentLocal(raw);
+          const file = getFileContentLocal(
+            raw,
+            cwd,
+            HOME,
+            findNodeByPath,
+            fileSystem,
+            (p) => expandTilde(p, HOME)
+          );
           if (!file) {
             result.error = `wc: ${raw}: No such file`;
             continue;
@@ -299,7 +313,14 @@ export function useShell(params: {
       } else {
         const perFile: string[] = [];
         for (const raw of filesGrep) {
-          const file = getFileContentLocal(raw);
+          const file = getFileContentLocal(
+            raw,
+            cwd,
+            HOME,
+            findNodeByPath,
+            fileSystem,
+            (p) => expandTilde(p, HOME)
+          );
           if (!file) {
             result.error = `grep: ${raw}: No such file`;
             continue;
@@ -370,7 +391,14 @@ export function useShell(params: {
         }
       } else {
         for (const raw of filesCut) {
-          const file = getFileContentLocal(raw);
+        const file = getFileContentLocal(
+          raw,
+          cwd,
+          HOME,
+          findNodeByPath,
+          fileSystem,
+          (p) => expandTilde(p, HOME)
+        );          
           if (!file) {
             result.error = `cut: ${raw}: No such file`;
             continue;
