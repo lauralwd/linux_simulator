@@ -28,6 +28,27 @@ export function useShell(params: {
   const [suggestions, setSuggestions] = useState<string[]>([]);
 
   // 4. Helpers (now imported)
+  // Helper function to expand glob patterns like *.txt
+  const expandGlob = (pattern: string, basePath: string): string[] => {
+    if (!pattern.includes("*")) {
+      return [pattern]; // No wildcard, return as-is
+    }
+    
+    const baseNode = findNodeByPath(fileSystem, basePath);
+    if (!baseNode || baseNode.type !== "dir" || !baseNode.children) {
+      return [];
+    }
+    
+    // Convert glob pattern to regex
+    const regexPattern = pattern
+      .replace(/\./g, "\\.")
+      .replace(/\*/g, ".*");
+    const regex = new RegExp(`^${regexPattern}$`);
+    
+    return baseNode.children
+      .filter(child => regex.test(child.name))
+      .map(child => child.name);
+  };
 
   // 5. Command Execution Logic
   const runSingle = (
@@ -73,8 +94,64 @@ export function useShell(params: {
         if (rawT.startsWith("~")) {
           rawT = expandTilde(rawT, HOME);
         }
-        if (rawT.startsWith("/")) targetPath = normalizePath(rawT);
-        else targetPath = normalizePath(joinPaths(cwd, rawT));
+        
+        // Handle glob patterns
+        if (rawT.includes("*")) {
+          const basePath = rawT.startsWith("/") ? 
+            normalizePath(rawT.substring(0, rawT.lastIndexOf("/")) || "/") :
+            cwd;
+          const pattern = rawT.includes("/") ? 
+            rawT.substring(rawT.lastIndexOf("/") + 1) : 
+            rawT;
+          
+          const matches = expandGlob(pattern, basePath);
+          if (matches.length === 0) {
+            result.error = `ls: cannot access '${parts.slice(argStart).join(" ")}': No such file or directory`;
+            return result;
+          }
+          
+          // For multiple matches, show each file/directory
+          const allEntries: Array<{ name: string; type: "dir" | "file"; size?: number }> = [];
+          for (const match of matches) {
+            const fullPath = basePath === "/" ? `/${match}` : `${basePath}/${match}`;
+            const matchNode = findNodeByPath(fileSystem, fullPath);
+            if (matchNode) {
+              allEntries.push({
+                name: match,
+                type: matchNode.type,
+                size: calculateSize(matchNode)
+              });
+            }
+          }
+          
+          // Filter and sort entries
+          const filteredEntries = allEntries
+            .filter((e) => showAll || !e.name.startsWith("."))
+            .sort((a, b) => {
+              if (a.type !== b.type) return a.type === "dir" ? -1 : 1;
+              return a.name.localeCompare(b.name);
+            });
+          
+          result.ls = { path: basePath, entries: filteredEntries, showAll, long: longFormat, human, blocks };
+          
+          // Update text output to include sizes when requested
+          if (blocks || longFormat) {
+            result.text = filteredEntries.map((e) => {
+              let sizeStr = "";
+              if (blocks && e.size !== undefined) {
+                sizeStr = formatSize(e.size, human) + " ";
+              }
+              return sizeStr + (e.type === "dir" ? e.name + "/" : e.name);
+            }).join("\n");
+          } else {
+            result.text = filteredEntries.map((e) => (e.type === "dir" ? e.name + "/" : e.name)).join("\n");
+          }
+          return result;
+        } else {
+          // Regular path (no wildcards)
+          if (rawT.startsWith("/")) targetPath = normalizePath(rawT);
+          else targetPath = normalizePath(joinPaths(cwd, rawT));
+        }
       }
       if (!isDirectory(fileSystem, targetPath)) {
         result.error = `ls: cannot access '${parts.slice(argStart).join(" ")}': No such directory`;
